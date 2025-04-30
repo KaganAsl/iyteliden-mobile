@@ -1,10 +1,100 @@
 import 'package:flutter/material.dart';
+import 'package:iyteliden_mobile/models/request/auth_entity.dart';
 import 'package:iyteliden_mobile/pages/login_page.dart';
+import 'package:iyteliden_mobile/services/auth_service.dart';
 import 'package:iyteliden_mobile/utils/app_colors.dart';
 
-class RegisterPage extends StatelessWidget {
+class RegisterPage extends StatefulWidget {
 
   const RegisterPage({super.key});
+
+  @override
+  State<StatefulWidget> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+  
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _authService = AuthService();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleRegister() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final mail = _emailController.text;
+    final password = _passwordController.text;
+
+    if (mail.isEmpty || password.isEmpty) {
+      _showFeedbackSnackBar("Email or password can't be empty", isError: true);
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    final authData = AuthEntity(mail: mail, password: password);
+
+    try {
+      final (authResponse, errorResponse) = await _authService.register(authData);
+      if (!mounted) return;
+      if (errorResponse != null) {
+        _showFeedbackSnackBar(errorResponse.message, isError: true);
+        setState(() {
+          _isLoading = false;
+        });
+      } else if (authResponse != null) {
+        _showFeedbackSnackBar("Verification mail send.");
+        setState(() {
+          _isLoading = false;
+        });
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginPage()),);
+      } else {
+        _showFeedbackSnackBar("Unknown error occured.", isError: true);
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _showFeedbackSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    final snackBar = SnackBar(
+      content: Text(message),
+      backgroundColor: isError ? Colors.redAccent : Colors.green,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      margin: const EdgeInsets.all(10),
+      action: SnackBarAction(
+        label: "OK",
+        textColor: Colors.white,
+        onPressed: () {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        },
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +118,8 @@ class RegisterPage extends StatelessWidget {
             ),
             const SizedBox(height: 32,),
             TextField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
                 labelText: "Email",
                 labelStyle: TextStyle(color: Colors.black),
@@ -39,6 +131,7 @@ class RegisterPage extends StatelessWidget {
             ),
             const SizedBox(height: 32,),
             TextField(
+              controller: _passwordController,
               obscureText: true,
               decoration: InputDecoration(
                 labelText: "Password",
@@ -57,14 +150,24 @@ class RegisterPage extends StatelessWidget {
                 style: ButtonStyle(
                   backgroundColor: WidgetStatePropertyAll<Color>(AppColors.primary),
                 ),
-                child: const Text(
+                onPressed: _isLoading ? null : _handleRegister,
+                child: _isLoading ?
+                const SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: CircularProgressIndicator(
+                    color: AppColors.background,
+                    strokeWidth: 3,
+                  ),
+                )
+                :
+                const Text(
                   "Register",
                   style: TextStyle(
-                    color: AppColors.background,
                     fontWeight: FontWeight.bold,
+                    color: AppColors.background,
                   ),
-                ),
-                onPressed: () {},
+                )
               ),
             ),
             const SizedBox(height: 16,),

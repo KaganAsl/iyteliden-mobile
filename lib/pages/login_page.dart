@@ -61,6 +61,7 @@ class _LoginPageState extends State<LoginPage> {
         });
       } else {
         _showFeedbackSnackBar("Unknown error occured.", isError: true);
+        _isLoading = false;
       }
     } catch (e) {
       if (mounted) {

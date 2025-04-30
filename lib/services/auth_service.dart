@@ -27,11 +27,19 @@ class AuthService {
     }
   }
 
-  Future<bool> register(AuthEntity data) async {
+  Future<(String?, ErrorResponse?)> register(AuthEntity data) async {
     final response = await http.post(
       Uri.parse('$url/auth/register'),
-      body: data.toJson(),
+      headers: <String, String> {
+        'Content-Type': 'application/json; charset=UTF-8'
+      },
+      body: jsonEncode(data.toJson()),
     );
-    return response.statusCode == 200;
+    if (response.statusCode == 200) {
+      return(response.body, null);
+    } else {
+      final json = jsonDecode(response.body);
+      return (null, ErrorResponse.fromJson(json));
+    }
   }
 }
