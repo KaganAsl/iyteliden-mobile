@@ -37,7 +37,7 @@ class _LoginPageState extends State<LoginPage> {
     final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      _showErrorDialog("Email and password can not be empty");
+      _showFeedbackSnackBar("Email or password can't be empty", isError: true);
       setState(() {
         _isLoading = false;
       });
@@ -50,17 +50,17 @@ class _LoginPageState extends State<LoginPage> {
       final (authResponse, errorResponse) = await _authService.login(authData);
       if (!mounted) return;
       if (errorResponse != null) {
-        _showErrorDialog(errorResponse.message);
+        _showFeedbackSnackBar(errorResponse.message, isError: true);
         setState(() {
           _isLoading = false;
         });
       } else if (authResponse != null) {
-        _showSuccessDialog();
+        _showFeedbackSnackBar("Sucessful");
         setState(() {
           _isLoading = false;
         });
       } else {
-        _showErrorDialog("Unexpected error occured");
+        _showFeedbackSnackBar("Unknown error occured.", isError: true);
       }
     } catch (e) {
       if (mounted) {
@@ -71,44 +71,25 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Login Error'),
-          content: Text(message),
-          actions: [
-            TextButton(
-              child: const Text('OK'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-          ],
-        );
-      }
+  void _showFeedbackSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    final snackBar = SnackBar(
+      content: Text(message),
+      backgroundColor: isError ? Colors.redAccent : Colors.green,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      margin: const EdgeInsets.all(10),
+      action: SnackBarAction(
+        label: "OK",
+        textColor: Colors.white,
+        onPressed: () {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        },
+      ),
     );
-  }
-
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Login Success'),
-          content: const Text('You have logged in successfully!'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('OK'),
-              onPressed: () {
-                 Navigator.of(dialogContext).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   @override
