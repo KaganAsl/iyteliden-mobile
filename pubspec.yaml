@@ -13,6 +13,7 @@ dependencies:
   google_fonts:
   flutter_dotenv:
   http:
+  shared_preferences:
 
 dev_dependencies:
   flutter_test:

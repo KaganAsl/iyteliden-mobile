@@ -3,6 +3,7 @@ import 'package:iyteliden_mobile/models/request/auth_entity.dart';
 import 'package:iyteliden_mobile/pages/register_page.dart';
 import 'package:iyteliden_mobile/services/auth_service.dart';
 import 'package:iyteliden_mobile/utils/app_colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
 
@@ -59,6 +60,7 @@ class _LoginPageState extends State<LoginPage> {
         setState(() {
           _isLoading = false;
         });
+        _saveJwt(authResponse.authorization, authResponse.expireSeconds);
       } else {
         _showFeedbackSnackBar("Unknown error occured.", isError: true);
         _isLoading = false;
@@ -91,6 +93,14 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
+
+  Future<void> _saveJwt(String token, int expireSeconds) async {
+    final prefs = await SharedPreferences.getInstance();
+    final expiry = DateTime.now().add(Duration(seconds: expireSeconds));
+
+    await prefs.setString("auth_token", token);
+    await prefs.setString("auth_expiry", expiry.toIso8601String());
   }
 
   @override
