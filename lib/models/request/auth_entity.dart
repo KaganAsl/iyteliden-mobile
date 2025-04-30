@@ -1,15 +1,15 @@
 class AuthEntity {
-  final String email;
+  final String mail;
   final String password;
 
   AuthEntity({
-    required this.email,
+    required this.mail,
     required this.password,
   });
 
-  Map<String, String> toJson() {
+  Map<String, dynamic> toJson() {
     return {
-      'email': email,
+      'mail': mail,
       'password': password
     };
   }

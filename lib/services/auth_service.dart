@@ -12,7 +12,10 @@ class AuthService {
   Future<(AuthResponse?, ErrorResponse?)> login(AuthEntity data) async {
     final response = await http.post(
       Uri.parse('$url/auth/login'),
-      body: data.toJson()
+      headers: <String, String> {
+        'Content-Type': 'application/json; charset=UTF-8'
+      },
+      body: jsonEncode(data.toJson())
     );
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body);
