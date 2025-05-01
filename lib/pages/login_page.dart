@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iyteliden_mobile/models/request/auth_entity.dart';
+import 'package:iyteliden_mobile/pages/main_page.dart';
 import 'package:iyteliden_mobile/pages/register_page.dart';
 import 'package:iyteliden_mobile/services/auth_service.dart';
 import 'package:iyteliden_mobile/utils/app_colors.dart';
@@ -56,11 +57,20 @@ class _LoginPageState extends State<LoginPage> {
           _isLoading = false;
         });
       } else if (authResponse != null) {
+        int verifyResponse = await _authService.userVerification(authResponse.authorization);
+        if (verifyResponse == 403) {
+          _showFeedbackSnackBar("User not verified yet", isError: true);
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
         _showFeedbackSnackBar("Sucessful");
         setState(() {
           _isLoading = false;
         });
         _saveJwt(authResponse.authorization, authResponse.expireSeconds);
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const MainPage()));
       } else {
         _showFeedbackSnackBar("Unknown error occured.", isError: true);
         _isLoading = false;

@@ -42,4 +42,15 @@ class AuthService {
       return (null, ErrorResponse.fromJson(json));
     }
   }
+
+  Future<int> userVerification(String jwt) async {
+    final response = await http.get(
+      Uri.parse('$url/auth/verification'),
+      headers: <String, String> {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': jwt
+      }
+    );
+    return response.statusCode;
+  }
 }
