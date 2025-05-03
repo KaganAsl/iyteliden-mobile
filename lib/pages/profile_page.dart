@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/models/response/self_user_response.dart';
+import 'package:iyteliden_mobile/pages/login_page.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
 import 'package:iyteliden_mobile/services/user_service.dart';
 import 'package:iyteliden_mobile/utils/app_colors.dart';
@@ -41,6 +42,12 @@ class _ProfilePageState extends State<ProfilePage> {
     return userResponse!;
   }
 
+  void _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.remove("auth_token");
+    prefs.remove("auth_expiry");
+  }
+
   void _showFeedbackSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
     final snackBar = SnackBar(
@@ -76,6 +83,15 @@ class _ProfilePageState extends State<ProfilePage> {
         backgroundColor: Colors.white,
         elevation: 1,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout_outlined),
+            onPressed: () {
+              _logout();
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginPage()));
+            },
+          ),
+        ],
       ),
       body: FutureBuilder<SelfUserResponse>(
         future: _futureProfile,
