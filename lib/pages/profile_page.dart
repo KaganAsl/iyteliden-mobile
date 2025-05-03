@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:iyteliden_mobile/models/response/error_response.dart';
+import 'package:iyteliden_mobile/models/response/image_response.dart';
+import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/models/response/self_user_response.dart';
+import 'package:iyteliden_mobile/services/image_service.dart';
+import 'package:iyteliden_mobile/services/product_service.dart';
 import 'package:iyteliden_mobile/services/user_service.dart';
 import 'package:iyteliden_mobile/utils/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +20,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   
   late Future<SelfUserResponse> _futureProfile;
+  String? _jwt;
 
   @override
   void initState() {
@@ -24,19 +30,17 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<SelfUserResponse> _loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString("auth_token");
-    if (jwt == null || jwt.isEmpty) {
+    _jwt = prefs.getString("auth_token");
+    if (_jwt == null || _jwt!.isEmpty) {
       _showFeedbackSnackBar("Can't load profile", isError: true);
       throw Exception("JWT is missing");
-    } else {
-      final (userResponse, errorResponse) = await UserService().getSelfUserProfile(jwt);
-      if (errorResponse != null) {
+    } 
+    final (userResponse, errorResponse) = await UserService().getSelfUserProfile(_jwt!);
+    if (errorResponse != null) {
         _showFeedbackSnackBar(errorResponse.message, isError: true);
         throw Exception(errorResponse.message);
-      } else {
-        return userResponse!;
-      }
     }
+    return userResponse!;
   }
 
   void _showFeedbackSnackBar(String message, {bool isError = false}) {
@@ -64,7 +68,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           "Profile",
           style: TextStyle(
             color: AppColors.text,
@@ -80,26 +84,38 @@ class _ProfilePageState extends State<ProfilePage> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator(),);
-          } else if (snapshot.hasError) {
+          } if (snapshot.hasError) {
             return const Center(child: Text("Failed to load profile."));
-          } else if (!snapshot.hasData) {
+          } if (!snapshot.hasData) {
             return const Center(child: Text("User has no data."));
           }
           final user = snapshot.data!;
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Id: ${user.userId}", style: const TextStyle(fontSize: 16)),
-                const SizedBox(height: 8),
-                Text("Email: ${user.mail}", style: const TextStyle(fontSize: 16)),
-                const SizedBox(height: 8),
-                Text("Username: ${user.userName}", style: const TextStyle(fontSize: 16)),
-                const SizedBox(height: 8),
-                Text("Status: ${user.status}", style: const TextStyle(fontSize: 16)),
-              ],
-            ),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Id: ${user.userId}", style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text("Email: ${user.mail}", style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text("Username: ${user.userName}", style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text("Status: ${user.status}", style: const TextStyle(fontSize: 16)),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ProductList(
+                  jwt: _jwt!,
+                  ownerId: user.userId,
+                ),
+              ),
+            ],
           );
         },
 
@@ -108,3 +124,186 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
+class ProductList extends StatefulWidget {
+  final String jwt;
+  final int ownerId;
+  const ProductList({super.key, required this.jwt, required this.ownerId});
+
+  @override
+  State<ProductList> createState() => _ProductListState();
+}
+
+class _ProductListState extends State<ProductList> {
+  final List<SimpleProductResponse> _products = [];
+  final ScrollController _controller = ScrollController();
+  int _currentPage = 0;
+  int _totalPages = 1;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPage();                    // page 0
+    _controller.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    // 200px from bottom triggers next page
+    if (_controller.position.pixels >=
+            _controller.position.maxScrollExtent - 200 &&
+        !_isLoading &&
+        _currentPage + 1 < _totalPages) {
+      _currentPage += 1;
+      _fetchPage();
+    }
+  }
+
+  Future<void> _fetchPage() async {
+    setState(() => _isLoading = true);
+    final (pageData, error) = await ProductService()
+        .getSimpleProducts(widget.jwt, widget.ownerId, _currentPage);
+    if (mounted) {
+      if (error == null && pageData != null) {
+        setState(() {
+          _products.addAll(pageData.content);
+          _totalPages = pageData.page.totalPages;
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(error?.message ?? 'Failed to fetch products'),
+          backgroundColor: Colors.redAccent,
+        ));
+      }
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_products.isEmpty && _isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_products.isEmpty) {
+      return const Center(child: Text("No products to display."));
+    }
+
+    return GridView.builder(
+      controller: _controller,
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 3/4,
+      ),
+      itemCount: _products.length + (_isLoading ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index >= _products.length) {
+          return const Center(child: CircularProgressIndicator(),);
+        }
+        return ProductTile(jwt: widget.jwt, product: _products[index]);
+      },
+    );
+  }
+}
+
+class ProductTile extends StatelessWidget {
+  final String jwt;
+  final SimpleProductResponse product;
+  const ProductTile({super.key, required this.jwt, required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadiusGeometry.circular(12)),
+      elevation: 2,
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 3,
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  child: product.coverImage == null
+                  ? const Icon(Icons.image_not_supported_outlined, size: 48,)
+                  : FutureBuilder<(ImageResponse?, ErrorResponse?)>(
+                    future: ImageService().getImage(jwt, product.coverImage!),
+                    builder: (ctx, snap) {
+                      if (snap.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator(),);
+                      }
+                      final img = snap.data?.$1?.url;
+                      if (img == null) {
+                        return const Icon(Icons.broken_image_outlined);
+                      }
+                      return Image.network(
+                        img,
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.productName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "${product.price.toStringAsFixed(2)} ₺",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.black87
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: PopupMenuButton<String>(
+              icon: const Icon(Icons.more_horiz, size: 20,),
+              padding: EdgeInsets.zero,
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                const PopupMenuItem(value: 'delete', child: Text('Delete')),
+              ],
+              onSelected: (value) {
+                switch (value) {
+                  case 'edit':
+                    break;
+                  case 'delete':
+                    break;
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
