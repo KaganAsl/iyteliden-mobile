@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:iyteliden_mobile/models/response/error_response.dart';
-import 'package:iyteliden_mobile/models/response/image_response.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/models/response/self_user_response.dart';
-import 'package:iyteliden_mobile/services/image_service.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
 import 'package:iyteliden_mobile/services/user_service.dart';
 import 'package:iyteliden_mobile/utils/app_colors.dart';
+import 'package:iyteliden_mobile/widgets/simple_product_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -207,103 +205,8 @@ class _ProductListState extends State<ProductList> {
         if (index >= _products.length) {
           return const Center(child: CircularProgressIndicator(),);
         }
-        return ProductTile(jwt: widget.jwt, product: _products[index]);
+        return SimpleProductCard(jwt: widget.jwt, product: _products[index]);
       },
-    );
-  }
-}
-
-class ProductTile extends StatelessWidget {
-  final String jwt;
-  final SimpleProductResponse product;
-  const ProductTile({super.key, required this.jwt, required this.product});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadiusGeometry.circular(12)),
-      elevation: 2,
-      child: Stack(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                flex: 3,
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                  child: product.coverImage == null
-                  ? const Icon(Icons.image_not_supported_outlined, size: 48,)
-                  : FutureBuilder<(ImageResponse?, ErrorResponse?)>(
-                    future: ImageService().getImage(jwt, product.coverImage!),
-                    builder: (ctx, snap) {
-                      if (snap.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator(),);
-                      }
-                      final img = snap.data?.$1?.url;
-                      if (img == null) {
-                        return const Icon(Icons.broken_image_outlined);
-                      }
-                      return Image.network(
-                        img,
-                        fit: BoxFit.cover,
-                      );
-                    },
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 1,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        product.productName,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "${product.price.toStringAsFixed(2)} ₺",
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.black87
-                        ),
-                      )
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: PopupMenuButton<String>(
-              icon: const Icon(Icons.more_horiz, size: 20,),
-              padding: EdgeInsets.zero,
-              itemBuilder: (_) => [
-                const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                const PopupMenuItem(value: 'delete', child: Text('Delete')),
-              ],
-              onSelected: (value) {
-                switch (value) {
-                  case 'edit':
-                    break;
-                  case 'delete':
-                    break;
-                }
-              },
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
