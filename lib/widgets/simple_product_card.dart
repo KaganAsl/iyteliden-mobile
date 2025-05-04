@@ -7,7 +7,7 @@ import 'package:iyteliden_mobile/services/image_service.dart';
 class SimpleSelfProductCard extends StatelessWidget {
 
   final String jwt;
-  final SimpleProductResponse product;
+  final SimpleSelfProductResponse product;
   final void Function()? onEdit;
   final void Function()? onDelete;
   final void Function()? onTap;
@@ -49,10 +49,14 @@ class SimpleSelfProductCard extends StatelessWidget {
                         if (img == null) {
                           return const Icon(Icons.broken_image_outlined, size: 48,);
                         }
-                        return Image.network(img, fit: BoxFit.cover);
+                        return Image.network(img, fit: BoxFit.contain);
                       },
                     ),
                   ),
+                ),
+                Divider(
+                  thickness: 2,
+                  color: Colors.black87,
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -98,6 +102,112 @@ class SimpleSelfProductCard extends StatelessWidget {
                     onDelete?.call();
                   }
                 },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SimpleProductCard extends StatelessWidget {
+
+  final String jwt;
+  final SimpleProductResponse product;
+  final bool isFavorite;
+  final VoidCallback? onTap;
+  final VoidCallback? onFavorite;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  const SimpleProductCard({
+    super.key,
+    required this.jwt,
+    required this.product,
+    this.isFavorite = false,
+    this.onTap,
+    this.onFavorite,
+    this.onEdit,
+    this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadiusGeometry.circular(12)),
+        elevation: 2,
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    child: product.coverImage == null ?
+                    const Icon(Icons.image_not_supported_outlined, size: 48,)
+                    : FutureBuilder<(ImageResponse?, ErrorResponse?)>(
+                      future: ImageService().getImage(jwt, product.coverImage!),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator(),);
+                        }
+                        final img = snapshot.data?.$1?.url;
+                        if (img == null) {
+                          return const Icon(Icons.broken_image_outlined, size: 48,);
+                        }
+                        return Image.network(img, fit: BoxFit.contain);
+                      },
+                    ),
+                  ),
+                ),
+                Divider(
+                  thickness: 2,
+                  color: Colors.black87,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.productName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4,),
+                      Text(
+                        "${product.price.toStringAsFixed(2)} ₺",
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black87
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton(
+                icon: Icon(
+                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: isFavorite ? Colors.red : Colors.grey[600],
+                  size: 20,
+                ),
+                padding: EdgeInsets.zero,
+                onPressed: onFavorite,
+                tooltip: isFavorite ? 'Remove from favorites' : 'Add to favorites',
               ),
             ),
           ],

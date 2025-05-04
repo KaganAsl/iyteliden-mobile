@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iyteliden_mobile/pages/create_product_page.dart';
 import 'package:iyteliden_mobile/pages/profile_page.dart';
+import 'package:iyteliden_mobile/pages/tabs/favorite_tab.dart';
 import 'package:iyteliden_mobile/pages/tabs/home_tab.dart';
 import 'package:iyteliden_mobile/utils/app_colors.dart';
 
@@ -17,9 +18,9 @@ class _MainPageState extends State<MainPage> {
 
   final List<Widget> _tabs = [
     const HomeTab(),
-    const Center(child: Text("Categories"),),
+    const Center(child: Text("Messages"),),
     const Placeholder(),
-    const Center(child: Text("Favourites"),),
+    const FavoriteTab(),
   ];
 
   void _onTabTapped(int index) {
@@ -57,7 +58,7 @@ class _MainPageState extends State<MainPage> {
         backgroundColor: Colors.white,
         items: [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.category), label: "Categories"),
+          BottomNavigationBarItem(icon: Icon(Icons.message), label: "Messages"),
           BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline_rounded), label: "Create"),
           BottomNavigationBarItem(icon: Icon(Icons.favorite), label: "Favourites"),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
