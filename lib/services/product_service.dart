@@ -9,7 +9,7 @@ class ProductService {
   
   final String url = Env.apiUrl;
 
-  Future<(SimpleProductListResponse?, ErrorResponse?)> getSimpleProducts(String jwt, int userId, int page) async {
+  Future<(SimpleSelfProductListResponse?, ErrorResponse?)> getSelfSimpleProducts(String jwt, int userId, int page) async {
     final response = await http.get(
       Uri.parse('$url/products/userId/$userId?page=$page'),
       headers: <String, String> {
@@ -19,7 +19,7 @@ class ProductService {
     );
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body);
-      return (SimpleProductListResponse.fromJson(json), null);
+      return (SimpleSelfProductListResponse.fromJson(json), null);
     } else {
       final json = jsonDecode(response.body);
       final error = ErrorResponse.fromJson(json);

@@ -148,7 +148,7 @@ class ProductList extends StatefulWidget {
 }
 
 class _ProductListState extends State<ProductList> {
-  final List<SimpleProductResponse> _products = [];
+  final List<SimpleSelfProductResponse> _products = [];
   final ScrollController _controller = ScrollController();
   int _currentPage = 0;
   int _totalPages = 1;
@@ -181,7 +181,7 @@ class _ProductListState extends State<ProductList> {
   Future<void> _fetchPage() async {
     setState(() => _isLoading = true);
     final (pageData, error) = await ProductService()
-        .getSimpleProducts(widget.jwt, widget.ownerId, _currentPage);
+        .getSelfSimpleProducts(widget.jwt, widget.ownerId, _currentPage);
     if (mounted) {
       if (error == null && pageData != null) {
         setState(() {
@@ -221,7 +221,7 @@ class _ProductListState extends State<ProductList> {
         if (index >= _products.length) {
           return const Center(child: CircularProgressIndicator(),);
         }
-        return SimpleProductCard(jwt: widget.jwt, product: _products[index]);
+        return SimpleSelfProductCard(jwt: widget.jwt, product: _products[index]);
       },
     );
   }

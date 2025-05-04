@@ -4,7 +4,7 @@ import 'package:iyteliden_mobile/models/response/image_response.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/services/image_service.dart';
 
-class SimpleProductCard extends StatelessWidget {
+class SimpleSelfProductCard extends StatelessWidget {
 
   final String jwt;
   final SimpleProductResponse product;
@@ -12,7 +12,7 @@ class SimpleProductCard extends StatelessWidget {
   final void Function()? onDelete;
   final void Function()? onTap;
 
-  const SimpleProductCard({
+  const SimpleSelfProductCard({
     super.key,
     required this.jwt,
     required this.product,
