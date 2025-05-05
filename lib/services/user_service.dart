@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:iyteliden_mobile/models/response/error_response.dart';
-import 'package:iyteliden_mobile/models/response/self_user_response.dart';
+import 'package:iyteliden_mobile/models/response/user_response.dart';
 import 'package:iyteliden_mobile/utils/dotenv.dart';
 import 'package:http/http.dart' as http;
 

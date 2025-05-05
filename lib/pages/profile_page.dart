@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
-import 'package:iyteliden_mobile/models/response/self_user_response.dart';
+import 'package:iyteliden_mobile/models/response/user_response.dart';
 import 'package:iyteliden_mobile/pages/login_page.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
 import 'package:iyteliden_mobile/services/user_service.dart';
