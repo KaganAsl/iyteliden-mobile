@@ -20,3 +20,17 @@ class SelfUserResponse {
     );
   }
 }
+
+class UserResponse {
+  final int userId;
+  final String userName;
+
+  UserResponse({
+    required this.userId,
+    required this.userName,
+  });
+
+  factory UserResponse.fromJson(Map<String, dynamic> json) {
+    return UserResponse(userId: json['userId'], userName: json['userName']);
+  }
+}

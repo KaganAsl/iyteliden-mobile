@@ -1,4 +1,8 @@
+
+import 'package:iyteliden_mobile/models/response/category_response.dart';
+import 'package:iyteliden_mobile/models/response/location_response.dart';
 import 'package:iyteliden_mobile/models/response/page_info_response.dart';
+import 'package:iyteliden_mobile/models/response/user_response.dart';
 
 class SimpleSelfProductResponse {
   final int productId;
@@ -79,6 +83,83 @@ class SimpleProductListResponse {
     return SimpleProductListResponse(
       content: (json['content'] as List).map((item) => SimpleProductResponse.fromJson(item)).toList(),
       page: PageInfoResponse.fromJson(json['page']),
+    );
+  }
+}
+
+class DetailedProductResponse {
+
+  final int productId;
+  final UserResponse user;
+  final CategoryResponse category;
+  final List<String> imageUrls;
+  final String productName;
+  final String description;
+  final double price;
+  final List<Location> locations;
+  bool? isLiked;
+
+  DetailedProductResponse({
+    required this.productId,
+    required this.user,
+    required this.category,
+    required this.imageUrls,
+    required this.productName,
+    required this.description,
+    required this.price,
+    required this.locations,
+  });
+
+  factory DetailedProductResponse.fromJson(Map<String, dynamic> json) {
+    return DetailedProductResponse(
+      productId: json['productId'],
+      user: UserResponse.fromJson(json['user']),
+      category: CategoryResponse.fromJson(json['category']),
+      imageUrls: List<String>.from(json['imageUrls']),
+      productName: json['productName'],
+      description: json['description'],
+      price: (json['price'] as num).toDouble(),
+      locations: (json['locations'] as List)
+          .map((item) => Location.fromJson(item))
+          .toList(),
+    );
+  }
+}
+
+class DetailedSelfProductResponse {
+
+  final int productId;
+  final UserResponse user;
+  final CategoryResponse category;
+  final List<String> imageUrls;
+  final String productName;
+  final String description;
+  final double price;
+  final List<Location> locations;
+
+  DetailedSelfProductResponse({
+    required this.productId,
+    required this.user,
+    required this.category,
+    required this.imageUrls,
+    required this.productName,
+    required this.description,
+    required this.price,
+    required this.locations,
+  });
+
+  factory DetailedSelfProductResponse.fromJson(Map<String, dynamic> json) {
+    return DetailedSelfProductResponse(
+      productId: json['productId'],
+      user: UserResponse.fromJson(json['userId']),
+      category: CategoryResponse.fromJson(json['category']),
+      imageUrls: List<String>.from(json['imageUrls']),
+      productName: json['productName'],
+      description: json['description'],
+      price: (json['price'] as num).toDouble(),
+      locations: (json['locations'] as List)
+          .map((item) => Location.fromJson(item))
+          .toList(),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
+import 'package:iyteliden_mobile/pages/product_details_page.dart';
 import 'package:iyteliden_mobile/services/favorite_service.dart';
 import 'package:iyteliden_mobile/widgets/simple_product_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -131,6 +132,14 @@ class _FavoriteTabState extends State<FavoriteTab> {
           product: product,
           isFavorite: product.isLiked ?? true,
           onFavorite: () => _toggleFavorite(index),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ProductDetailPage(productId: _favorites[index].productId),
+              ),
+            );
+          },
         );
       },
     );

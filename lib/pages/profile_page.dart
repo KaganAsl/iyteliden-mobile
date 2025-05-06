@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/models/response/user_response.dart';
 import 'package:iyteliden_mobile/pages/login_page.dart';
+import 'package:iyteliden_mobile/pages/product_details_page.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
 import 'package:iyteliden_mobile/services/user_service.dart';
 import 'package:iyteliden_mobile/utils/app_colors.dart';
@@ -221,7 +222,17 @@ class _ProductListState extends State<ProductList> {
         if (index >= _products.length) {
           return const Center(child: CircularProgressIndicator(),);
         }
-        return SimpleSelfProductCard(jwt: widget.jwt, product: _products[index]);
+        return SimpleSelfProductCard(jwt: widget.jwt,
+          product: _products[index],
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ProductDetailPage(productId: _products[index].productId),
+              ),
+            );
+          },
+        );
       },
     );
   }
