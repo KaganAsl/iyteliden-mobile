@@ -14,7 +14,11 @@ dependencies:
   flutter_dotenv:
   http:
   shared_preferences:
-
+  http_parser:
+  mime:
+  image_picker:
+  file_picker:
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter
