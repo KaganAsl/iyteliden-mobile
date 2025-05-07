@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:iyteliden_mobile/models/response/error_response.dart';
 import 'package:iyteliden_mobile/models/response/image_response.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
+import 'package:iyteliden_mobile/pages/profile_page.dart';
+import 'package:iyteliden_mobile/pages/public_profile_page.dart';
 import 'package:iyteliden_mobile/services/favorite_service.dart';
 import 'package:iyteliden_mobile/services/image_service.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
@@ -212,6 +214,34 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     ),
                   ),
                   const SizedBox(height: 16,),
+                  GestureDetector(
+                    onTap: () {
+                      if (_isOwner) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProfilePage(),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PublicProfilePage(userId: product.user.userId),
+                          ),
+                        );
+                      }
+                    },
+                    child: Text(
+                      "Seller: ${product.user.userName}",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Text(
                     product.description,
                     style: const TextStyle(fontSize: 16),

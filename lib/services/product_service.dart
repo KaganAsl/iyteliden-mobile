@@ -27,6 +27,24 @@ class ProductService {
     }
   }
 
+  Future<(SimpleProductListResponse?, ErrorResponse?)> getSimpleProducts(String jwt, int userId, int page) async {
+    final response = await http.get(
+      Uri.parse('$url/products/userId/$userId?page=$page'),
+      headers: <String, String> {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': jwt
+      }
+    );
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      return (SimpleProductListResponse.fromJson(json), null);
+    } else {
+      final json = jsonDecode(response.body);
+      final error = ErrorResponse.fromJson(json);
+      return (null, error);
+    }
+  }
+
   Future<(bool?, ErrorResponse?)> isMyProduct(String jwt, int productId) async {
     final response = await http.get(
       Uri.parse('$url/products/ismine/$productId'),
