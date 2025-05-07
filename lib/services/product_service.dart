@@ -6,7 +6,6 @@ import 'package:http_parser/http_parser.dart';
 import 'package:iyteliden_mobile/models/response/error_response.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/utils/dotenv.dart';
-import 'package:mime/mime.dart';
 
 class ProductService {
   
@@ -119,18 +118,63 @@ class ProductService {
     final uri = Uri.parse('$url/products/create');
     final request = http.MultipartRequest('POST', uri);
     request.headers['Authorization'] = jwt;
-    request.headers['Content-Type'] = 'application/json; charset=UTF-8';
-    request.fields['product'] = jsonEncode(product);
-    request.fields['locations'] = jsonEncode(locations);
+    
+    // Add product as a JSON part with explicit content type
+    final productJson = jsonEncode(product);
+    request.files.add(
+      http.MultipartFile.fromString(
+        'product',
+        productJson,
+        contentType: MediaType('application', 'json'),
+      )
+    );
+    
+    // Add locations as a JSON part with explicit content type
+    final locationsJson = jsonEncode(locations);
+    request.files.add(
+      http.MultipartFile.fromString(
+        'locations',
+        locationsJson,
+        contentType: MediaType('application', 'json'),
+      )
+    );
+    
+    // Add image files without specifying content type
     for (final file in files) {
-      final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
-      final fileStream = http.MultipartFile.fromBytes(
+      final String fileName = file.path.split('/').last;
+      final String extension = fileName.split('.').last.toLowerCase();
+      
+      // Set MIME type based on extension
+      String mimeType;
+      switch (extension) {
+        case 'jpg':
+        case 'jpeg':
+          mimeType = 'image/jpeg';
+          break;
+        case 'png':
+          mimeType = 'image/png';
+          break;
+        case 'gif':
+          mimeType = 'image/gif';
+          break;
+        case 'webp':
+          mimeType = 'image/webp';
+          break;
+        default:
+          mimeType = 'image/jpeg'; // Default to JPEG
+      }
+      
+      final bytes = await file.readAsBytes();
+      
+      final multipartFile = http.MultipartFile(
         'files',
-        await file.readAsBytes(),
-        filename: file.path.split('/').last,
+        http.ByteStream.fromBytes(bytes),
+        bytes.length,
+        filename: fileName,
         contentType: MediaType.parse(mimeType),
       );
-      request.files.add(fileStream);
+      
+      request.files.add(multipartFile);
     }
     try {
       final streamedResponse = await request.send();

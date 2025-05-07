@@ -151,7 +151,7 @@ class DetailedSelfProductResponse {
   factory DetailedSelfProductResponse.fromJson(Map<String, dynamic> json) {
     return DetailedSelfProductResponse(
       productId: json['productId'],
-      user: UserResponse.fromJson(json['userId']),
+      user: UserResponse.fromJson(json['user']),
       category: CategoryResponse.fromJson(json['category']),
       imageUrls: List<String>.from(json['imageUrls']),
       productName: json['productName'],

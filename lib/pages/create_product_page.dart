@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:iyteliden_mobile/models/response/category_response.dart';
 import 'package:iyteliden_mobile/models/response/location_response.dart';
+import 'package:iyteliden_mobile/pages/product_details_page.dart';
 import 'package:iyteliden_mobile/services/category_service.dart';
 import 'package:iyteliden_mobile/services/location_service.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
@@ -153,7 +154,17 @@ class _CreateProductPageState extends State<CreateProductPage> {
 
       if (mounted) {
         _showFeedbackSnackBar('Product created successfully');
-        Navigator.pop(context);
+        // Clear the form
+        _resetForm();
+        await Future.delayed(const Duration(seconds: 1));
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProductDetailPage(productId: response!.productId),
+            ),
+          );
+        }
       }
     } catch (e) {
       setState(() {
@@ -165,6 +176,18 @@ class _CreateProductPageState extends State<CreateProductPage> {
         _isLoading = false;
       });
     }
+  }
+
+  // Reset all form fields and state
+  void _resetForm() {
+    setState(() {
+      _productNameController.clear();
+      _descriptionController.clear();
+      _priceController.clear();
+      _selectedImages.clear();
+      _selectedLocations.clear();
+      _selectedCategory = null;
+    });
   }
 
   void _showFeedbackSnackBar(String message, {bool isError = false}) {
