@@ -191,4 +191,21 @@ class ProductService {
       return (null, ErrorResponse(status: 500, message: "An error occured", timestamp: DateTime.now()));
     }
   }
+
+  Future<ErrorResponse?> deleteProduct(String jwt, int productId) async {
+    final response = await http.delete(
+      Uri.parse('$url/products/$productId'),
+      headers: <String, String> {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': jwt
+      }
+    );
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return null;
+    } else {
+      final json = jsonDecode(response.body);
+      final error = ErrorResponse.fromJson(json);
+      return error;
+    }
+  }
 }

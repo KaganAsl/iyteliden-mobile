@@ -208,13 +208,20 @@ class _ProductListState extends State<ProductList> {
           product: product,
           isFavorite: product.isLiked ?? true,
           onFavorite: () => _toggleFavorite(index),
-          onTap: () {
-            Navigator.push(
+          onTap: () async {
+            final shouldRefresh = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ProductDetailPage(productId: _products[index].productId),
               ),
             );
+            if (shouldRefresh == true) {
+              setState(() {
+                _products.clear();
+                _currentPage = 0;
+              });
+              _fetchPage();
+            }
           },
         );
       },

@@ -25,6 +25,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   bool _isOwner = false;
   bool _isLiked = false;
   int _currentImageIndex = 0;
+  bool _isDeleting = false;
 
   @override
   void initState() {
@@ -113,6 +114,22 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
+          if (snapshot.error.toString().contains('404') || 
+              snapshot.error.toString().contains('not found')) {
+            return Scaffold(
+              appBar: AppBar(
+                backgroundColor: Colors.white,
+                elevation: 0,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+              body: const Center(
+                child: Text('This product has been deleted or is no longer available.'),
+              ),
+            );
+          }
           return Center(child: Text('Error: ${snapshot.error}'));
         } else if (!snapshot.hasData) {
           return const Center(child: Text('No product details available.'));
@@ -135,7 +152,70 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   if (value == 'edit') {
                     // TODO - edit button
                   } else if (value == 'delete') {
-                    // TODO - delete button
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('Delete Product'),
+                          content: const Text('Are you sure you want to delete this product? This action cannot be undone.'),
+                          actions: [
+                            TextButton(
+                              onPressed: _isDeleting ? null : () => Navigator.of(context).pop(),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: _isDeleting ? null : () async {
+                                setState(() {
+                                  _isDeleting = true;
+                                });
+                                Navigator.of(context).pop();
+                                
+                                try {
+                                  if (_jwt == null || _jwt!.isEmpty) {
+                                    _showFeedbackSnackBar('Authentication error', isError: true);
+                                    return;
+                                  }
+                                  
+                                  final error = await ProductService().deleteProduct(_jwt!, widget.productId);
+                                  if (!mounted) return;
+                                  
+                                  if (error != null) {
+                                    _showFeedbackSnackBar(error.message, isError: true);
+                                    return;
+                                  }
+                                  
+                                  // If we get here, deletion was successful
+                                  Navigator.of(context).pop(); // Pop the dialog
+                                  Navigator.of(context).pop(); // Pop the product details page
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const ProfilePage(),
+                                    ),
+                                  );
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  _showFeedbackSnackBar('An error occurred while deleting the product', isError: true);
+                                } finally {
+                                  if (mounted) {
+                                    setState(() {
+                                      _isDeleting = false;
+                                    });
+                                  }
+                                }
+                              },
+                              child: _isDeleting 
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Text('Delete', style: TextStyle(color: Colors.red)),
+                            ),
+                          ],
+                        );
+                      },
+                    );
                   }
                 },
               )
@@ -164,11 +244,46 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               if (imgSnapshot.connectionState == ConnectionState.waiting) {
                                 return const Center(child: CircularProgressIndicator(),);
                               }
-                              final imgUrl = imgSnapshot.data?.$1?.url;
-                              if (imgUrl == null) {
-                                return const Icon(Icons.broken_image_outlined, size: 48);
+                              if (imgSnapshot.hasError || imgSnapshot.data?.$1?.url == null) {
+                                return Container(
+                                  height: 250,
+                                  width: double.infinity,
+                                  color: Colors.grey[200],
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Image not available',
+                                        style: TextStyle(color: Colors.grey[600]),
+                                      ),
+                                    ],
+                                  ),
+                                );
                               }
-                              return Image.network(imgUrl, fit: BoxFit.contain);
+                              return Image.network(
+                                imgSnapshot.data!.$1!.url,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    height: 250,
+                                    width: double.infinity,
+                                    color: Colors.grey[200],
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Failed to load image',
+                                          style: TextStyle(color: Colors.grey[600]),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
                             },
                           ),
                         ),

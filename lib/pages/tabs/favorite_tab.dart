@@ -132,13 +132,20 @@ class _FavoriteTabState extends State<FavoriteTab> {
           product: product,
           isFavorite: product.isLiked ?? true,
           onFavorite: () => _toggleFavorite(index),
-          onTap: () {
-            Navigator.push(
+          onTap: () async {
+            final shouldRefresh = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ProductDetailPage(productId: _favorites[index].productId),
               ),
             );
+            if (shouldRefresh == true) {
+              setState(() {
+                _favorites.clear();
+                _currentPage = 0;
+              });
+              _fetchFavorites();
+            }
           },
         );
       },
