@@ -191,4 +191,22 @@ class ProductService {
       return (null, ErrorResponse(status: 500, message: "An error occured", timestamp: DateTime.now()));
     }
   }
+
+  Future<(SimpleProductListResponse?, ErrorResponse?)> getMainPage(String jwt, int page) async {
+    final response = await http.get(
+      Uri.parse('$url/products/main?page=$page'),
+      headers: <String, String> {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': jwt
+      }
+    );
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      return (SimpleProductListResponse.fromJson(json), null);
+    } else {
+      final json = jsonDecode(response.body);
+      final error = ErrorResponse.fromJson(json);
+      return (null, error);
+    }
+  }
 }
