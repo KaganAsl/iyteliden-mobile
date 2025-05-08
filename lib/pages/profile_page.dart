@@ -47,6 +47,8 @@ class _ProfilePageState extends State<ProfilePage> {
     final prefs = await SharedPreferences.getInstance();
     prefs.remove("auth_token");
     prefs.remove("auth_expiry");
+    _showFeedbackSnackBar("Successfully logged out");
+    Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginPage()));
   }
 
   void _showFeedbackSnackBar(String message, {bool isError = false}) {
@@ -89,7 +91,6 @@ class _ProfilePageState extends State<ProfilePage> {
             icon: Icon(Icons.logout_outlined),
             onPressed: () {
               _logout();
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginPage()));
             },
           ),
         ],
