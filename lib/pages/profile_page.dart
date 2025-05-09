@@ -47,6 +47,8 @@ class _ProfilePageState extends State<ProfilePage> {
     final prefs = await SharedPreferences.getInstance();
     prefs.remove("auth_token");
     prefs.remove("auth_expiry");
+    _showFeedbackSnackBar("Successfully logged out");
+    Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginPage()));
   }
 
   void _showFeedbackSnackBar(String message, {bool isError = false}) {
@@ -89,7 +91,6 @@ class _ProfilePageState extends State<ProfilePage> {
             icon: Icon(Icons.logout_outlined),
             onPressed: () {
               _logout();
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginPage()));
             },
           ),
         ],
@@ -222,15 +223,63 @@ class _ProductListState extends State<ProductList> {
         if (index >= _products.length) {
           return const Center(child: CircularProgressIndicator(),);
         }
-        return SimpleSelfProductCard(jwt: widget.jwt,
+        return SimpleSelfProductCard(
+          jwt: widget.jwt,
           product: _products[index],
-          onTap: () {
-            Navigator.push(
+          onTap: () async {
+            final shouldRefresh = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ProductDetailPage(productId: _products[index].productId),
               ),
             );
+            if (shouldRefresh == true) {
+              setState(() {
+                _products.clear();
+                _currentPage = 0;
+              });
+              _fetchPage();
+            }
+          },
+          onDelete: () async {
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Delete Product'),
+                content: const Text('Are you sure you want to delete this product? This action cannot be undone.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                  ),
+                ],
+              ),
+            );
+            if (confirm == true) {
+              final error = await ProductService().deleteProduct(widget.jwt, _products[index].productId);
+              if (error != null) {
+                if (error.message.contains('foreign key constraint fails')) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Cannot delete this product because it has active bids.'), backgroundColor: Colors.redAccent),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(error.message), backgroundColor: Colors.redAccent),
+                  );
+                }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Product deleted successfully'), backgroundColor: Colors.green),
+                );
+                setState(() {
+                  _products.removeAt(index);
+                });
+              }
+            }
           },
         );
       },

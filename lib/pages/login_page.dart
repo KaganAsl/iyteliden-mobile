@@ -65,7 +65,7 @@ class _LoginPageState extends State<LoginPage> {
           });
           return;
         }
-        _showFeedbackSnackBar("Sucessful");
+        _showFeedbackSnackBar("Sucessfully logged in.");
         setState(() {
           _isLoading = false;
         });

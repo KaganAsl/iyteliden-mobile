@@ -124,16 +124,106 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   @override
+  State<StatefulWidget> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<HomeTab> {
+  final ScrollController _scrollController = ScrollController();
+  final List<SimpleProductResponse> _products = [];
+  bool _isLoading = false;
+  int _currentPage = 0;
+  int _totalPages = 1;
+  String? _jwt;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadJWTAndFirstPage();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200 &&
+        !_isLoading &&
+        _currentPage + 1 < _totalPages) {
+      _currentPage += 1;
+      _fetchProducts();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadJWTAndFirstPage() async {
+    final prefs = await SharedPreferences.getInstance();
+    _jwt = prefs.getString("auth_token");
+    if (_jwt == null) {
+      _showError("Authentication token is missing.");
+      return;
+    }
+    _fetchProducts();
+  }
+
+  Future<void> _fetchProducts() async {
+    if (_jwt == null) return;
+
+    setState(() => _isLoading = true);
+    final (data, error) = await ProductService().getAllProducts(_jwt!, _currentPage);
+    if (mounted) {
+      if (error != null || data == null) {
+        _showError(error?.message ?? "Failed to load products.");
+      } else {
+        setState(() {
+          _products.addAll(data.content);
+          _totalPages = data.page.totalPages;
+        });
+      }
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  void _toggleFavorite(int index) async {
+    final product = _products[index];
+    final liked = product.isLiked ?? false;
+
+    setState(() {
+      product.isLiked = !liked;
+    });
+
+    final service = FavoriteService();
+    final error = liked
+        ? await service.unfavorite(_jwt!, product.productId)
+        : await service.favorite(_jwt!, product.productId);
+
+    if (error != null) {
+      setState(() {
+        product.isLiked = liked; // revert
+      });
+      _showError(error.message);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (_products.isEmpty && _isLoading) {
-      return Center(child: CircularProgressIndicator(),);
+      return const Center(child: CircularProgressIndicator(),);
     }
     if (_products.isEmpty) {
-      return Center(child: Text("No product available right now"),);
+      return const Center(child: Text("No products available."),);
     }
     return GridView.builder(
       controller: _scrollController,
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 12,
@@ -151,13 +241,21 @@ class _HomeTabState extends State<HomeTab> {
           product: product,
           isFavorite: product.isLiked ?? false,
           onFavorite: () => _toggleFavorite(index),
-          onTap: () {
-            Navigator.push(
+          onTap: () async {
+            final shouldRefresh = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ProductDetailPage(productId: _products[index].productId),
               ),
             );
+            if (shouldRefresh == true && mounted) {
+              final (isFavorite, error) = await FavoriteService().checkFavorite(_jwt!, _products[index].productId);
+              if (error == null && mounted) {
+                setState(() {
+                  _products[index].isLiked = isFavorite;
+                });
+              }
+            }
           },
         );
       },

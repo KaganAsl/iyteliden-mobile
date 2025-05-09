@@ -48,7 +48,7 @@ class _FavoriteTabState extends State<FavoriteTab> {
     final prefs = await SharedPreferences.getInstance();
     _jwt = prefs.getString("auth_token");
     if (_jwt == null) {
-      _showError("Authentication token missing.");
+      _showError("Authentication token is missing.");
       return;
     }
     _fetchFavorites();
@@ -110,7 +110,7 @@ class _FavoriteTabState extends State<FavoriteTab> {
       return const Center(child: CircularProgressIndicator(),);
     }
     if (_favorites.isEmpty) {
-      return const Center(child: Text("You have no favorite product."),);
+      return const Center(child: Text("You don't have any favorite products."),);
     }
     return GridView.builder(
       controller: _scrollController,
@@ -132,13 +132,20 @@ class _FavoriteTabState extends State<FavoriteTab> {
           product: product,
           isFavorite: product.isLiked ?? true,
           onFavorite: () => _toggleFavorite(index),
-          onTap: () {
-            Navigator.push(
+          onTap: () async {
+            final shouldRefresh = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ProductDetailPage(productId: _favorites[index].productId),
               ),
             );
+            if (shouldRefresh == true) {
+              setState(() {
+                _favorites.clear();
+                _currentPage = 0;
+              });
+              _fetchFavorites();
+            }
           },
         );
       },

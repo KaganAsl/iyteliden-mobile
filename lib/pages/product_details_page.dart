@@ -25,6 +25,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   bool _isOwner = false;
   bool _isLiked = false;
   int _currentImageIndex = 0;
+  bool _isDeleting = false;
 
   @override
   void initState() {
@@ -102,51 +103,162 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         _isLiked = liked;
       });
       _showFeedbackSnackBar(error.message, isError: true);
+    } else {
+      _showFeedbackSnackBar(liked ? "Removed from favorites" : "Added to favorites");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<DetailedProductResponse>(
-      future: _productDetails,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        } else if (!snapshot.hasData) {
-          return const Center(child: Text('No product details available.'));
-        }
-        final product = snapshot.data!;
-        final imageCount = product.imageUrls.length;
-        return Scaffold(
+        future: _productDetails,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          } else if (snapshot.hasError) {
+            // ... (your existing error handling for product not found, etc.)
+            if (snapshot.error.toString().contains('404') ||
+                snapshot.error.toString().contains('not found') ||
+                snapshot.error.toString().contains('Failed to load product details')) { // Broader check
+              return Scaffold(
+                appBar: AppBar(
+                  backgroundColor: Colors.white,
+                  elevation: 0,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                body: const Center(
+                  child: Text('This product has been deleted or is no longer available.'),
+                ),
+              );
+            }
+            return Scaffold(body: Center(child: Text('Error loading product: ${snapshot.error}')));
+          } else if (!snapshot.hasData) {
+            return const Scaffold(body: Center(child: Text('No product details available.')));
+          }
+          final product = snapshot.data!;
+          final imageCount = product.imageUrls.length;
+
+          return Scaffold(
             appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0,
-            actions: [
-              _isOwner
-              ? PopupMenuButton<String>(
-                icon: const Icon(Icons.more_horiz),
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                  const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                ],
-                onSelected: (value) {
-                  if (value == 'edit') {
-                    // TODO - edit button
-                  } else if (value == 'delete') {
-                    // TODO - delete button
-                  }
-                },
-              )
-              : IconButton(
-                icon: _isLiked ? const Icon(Icons.favorite) : const Icon(Icons.favorite_border),
-                onPressed: () {
-                  _toggleFavoriteForProduct(product);
-                },
+              backgroundColor: Colors.white,
+              elevation: 0,
+               leading: IconButton( // Added explicit back button for consistency
+                icon: const Icon(Icons.arrow_back_ios_new), // Or Icons.arrow_back
+                onPressed: () => Navigator.of(context).pop(true), // Return true to trigger refresh
               ),
-            ],
-          ),
+              actions: [
+                _isOwner
+                    ? PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_horiz),
+                        itemBuilder: (popupContext) => [ // Use a different context name if needed
+                          const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                          const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                        ],
+                        onSelected: (value) {
+                          if (value == 'edit') {
+                            // TODO - edit button
+                          } else if (value == 'delete') {
+                            // Use the context from the PopupMenuButton's itemBuilder for showDialog
+                            showDialog(
+                              context: context, // This context is from the itemBuilder
+                              builder: (BuildContext dialogBuilderContext) { // Context for the dialog
+                                return AlertDialog(
+                                  title: const Text('Delete Product'),
+                                  content: const Text('Are you sure you want to delete this product? This action cannot be undone.'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: _isDeleting ? null : () => Navigator.of(dialogBuilderContext).pop(),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: _isDeleting ? null : () async {
+                                        // ---- START OF INTEGRATED DELETE LOGIC ----
+                                        if (!mounted) return;
+
+                                        // (1) Update UI state for the button within the dialog & pop dialog
+                                        // This setState call is for the _ProductDetailPageState.
+                                        // It will rebuild the ProductDetailPage, which might be fine if the dialog
+                                        // button's state is derived from _isDeleting.
+                                        setState(() { _isDeleting = true; });
+                                        Navigator.of(dialogBuilderContext).pop(); // Pop the dialog
+
+                                        // (2) Retrieve and Correct the JWT
+                                        // _jwt is already loaded in initState and potentially re-checked/re-loaded if necessary
+                                        String? currentRawJwt = _jwt;
+                                        String correctedJwt = currentRawJwt?.replaceAll("Bearer\n", "Bearer ") ?? "";
+                                        correctedJwt = correctedJwt.trim();
+
+                                        // (3) Validate the corrected JWT
+                                        if (correctedJwt.isEmpty ||
+                                            !correctedJwt.startsWith("Bearer ") ||
+                                            correctedJwt.length < "Bearer ".length + 30) {
+                                          _showFeedbackSnackBar('Authentication error - token invalid or missing.', isError: true);
+                                          if (mounted) {
+                                            setState(() { _isDeleting = false; });
+                                          }
+                                          return;
+                                        }
+
+                                        String? finalErrorMessageForSnackbar;
+
+                                        try {
+                                          final error = await ProductService().deleteProduct(correctedJwt, widget.productId);
+
+                                          if (!mounted) return;
+
+                                          if (error != null) {
+                                            finalErrorMessageForSnackbar = error.message;
+                                          } else {
+                                            // SUCCESS!
+                                            _showFeedbackSnackBar('Product deleted successfully!', isError: false);
+
+                                            // Navigate away. After this, the current page is disposed.
+                                            // Use this.context (the page's context) for page navigation.
+                                            // Ensure ProfilePage handles its own data refresh (e.g. in its initState)
+                                            await Navigator.of(this.context).pushAndRemoveUntil(
+                                              MaterialPageRoute(builder: (newContext) => const ProfilePage()),
+                                              (Route<dynamic> route) => route.isFirst,
+                                            );
+                                            // IMPORTANT: Since the page is replaced, we return to prevent
+                                            // any further operations (like setState in finally) on this disposed widget.
+                                            return;
+                                          }
+                                        } catch (e) {
+                                          if (!mounted) return;
+                                          finalErrorMessageForSnackbar = 'An unexpected error occurred: ${e.toString()}';
+                                        }
+
+                                        // This part is reached only if there was an error and navigation did not occur.
+                                        if (mounted) {
+                                          setState(() { _isDeleting = false; });
+                                          if (finalErrorMessageForSnackbar != null) {
+                                            _showFeedbackSnackBar(finalErrorMessageForSnackbar, isError: true);
+                                          }
+                                        }
+                                        // ---- END OF INTEGRATED DELETE LOGIC ----
+                                      },
+                                      child: _isDeleting
+                                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                          : const Text('Delete', style: TextStyle(color: Colors.red)),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          }
+                        },
+                      )
+                    : IconButton( // Favorite button if not owner
+                        icon: _isLiked ? const Icon(Icons.favorite, color: Colors.red) : const Icon(Icons.favorite_border),
+                        onPressed: () {
+                          _toggleFavoriteForProduct(product);
+                        },
+                      ),
+              ],
+            ),
           body: SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -164,11 +276,46 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               if (imgSnapshot.connectionState == ConnectionState.waiting) {
                                 return const Center(child: CircularProgressIndicator(),);
                               }
-                              final imgUrl = imgSnapshot.data?.$1?.url;
-                              if (imgUrl == null) {
-                                return const Icon(Icons.broken_image_outlined, size: 48);
+                              if (imgSnapshot.hasError || imgSnapshot.data?.$1?.url == null) {
+                                return Container(
+                                  height: 250,
+                                  width: double.infinity,
+                                  color: Colors.grey[200],
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Image not available',
+                                        style: TextStyle(color: Colors.grey[600]),
+                                      ),
+                                    ],
+                                  ),
+                                );
                               }
-                              return Image.network(imgUrl, fit: BoxFit.contain);
+                              return Image.network(
+                                imgSnapshot.data!.$1!.url,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    height: 250,
+                                    width: double.infinity,
+                                    color: Colors.grey[200],
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Failed to load image',
+                                          style: TextStyle(color: Colors.grey[600]),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
                             },
                           ),
                         ),

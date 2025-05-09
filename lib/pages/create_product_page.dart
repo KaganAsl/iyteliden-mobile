@@ -153,7 +153,7 @@ class _CreateProductPageState extends State<CreateProductPage> {
       }
 
       if (mounted) {
-        _showFeedbackSnackBar('Product created successfully');
+        _showFeedbackSnackBar('Product created successfully!');
         // Clear the form
         _resetForm();
         await Future.delayed(const Duration(seconds: 1));

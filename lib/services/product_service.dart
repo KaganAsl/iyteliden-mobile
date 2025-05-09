@@ -4,8 +4,10 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:iyteliden_mobile/models/response/error_response.dart';
+import 'package:iyteliden_mobile/models/response/page_info_response.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/utils/dotenv.dart';
+import 'package:iyteliden_mobile/services/favorite_service.dart';
 
 class ProductService {
   
@@ -191,8 +193,24 @@ class ProductService {
       return (null, ErrorResponse(status: 500, message: "An error occured", timestamp: DateTime.now()));
     }
   }
+  Future<ErrorResponse?> deleteProduct(String jwt, int productId) async {
+    final response = await http.delete(
+      Uri.parse('$url/products/$productId'),
+      headers: <String, String> {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': jwt
+      }
+    );
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return null;
+    } else {
+      final json = jsonDecode(response.body);
+      final error = ErrorResponse.fromJson(json);
+      return error;
+    }
+  }
 
-  Future<(SimpleProductListResponse?, ErrorResponse?)> getMainPage(String jwt, int page) async {
+  Future<(SimpleProductListResponse?, ErrorResponse?)> getAllProducts(String jwt, int page) async {
     final response = await http.get(
       Uri.parse('$url/products/main?page=$page'),
       headers: <String, String> {
@@ -202,7 +220,35 @@ class ProductService {
     );
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body);
-      return (SimpleProductListResponse.fromJson(json), null);
+      List<SimpleProductResponse> products;
+      if (json is List) {
+        products = json.map((item) => SimpleProductResponse.fromJson(item)).toList();
+      } else {
+        products = SimpleProductListResponse.fromJson(json).content;
+      }
+
+      // Check favorite status for each product
+      for (var product in products) {
+        final (isFavorite, error) = await FavoriteService().checkFavorite(jwt, product.productId);
+        if (error == null) {
+          product.isLiked = isFavorite;
+        }
+      }
+
+      return (
+        SimpleProductListResponse(
+          content: products,
+          page: json is List 
+            ? PageInfoResponse(
+                size: products.length,
+                number: page,
+                totalElements: products.length,
+                totalPages: 1,
+              )
+            : SimpleProductListResponse.fromJson(json).page,
+        ),
+        null
+      );
     } else {
       final json = jsonDecode(response.body);
       final error = ErrorResponse.fromJson(json);
