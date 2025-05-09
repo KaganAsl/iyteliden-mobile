@@ -193,7 +193,6 @@ class ProductService {
       return (null, ErrorResponse(status: 500, message: "An error occured", timestamp: DateTime.now()));
     }
   }
-
   Future<ErrorResponse?> deleteProduct(String jwt, int productId) async {
     final response = await http.delete(
       Uri.parse('$url/products/$productId'),

@@ -161,7 +161,7 @@ class _ProductListState extends State<ProductList> {
 
   void _toggleFavorite(int index) async {
     final product = _products[index];
-    final liked = product.isLiked ?? true;
+    final liked = product.isLiked ?? false;
 
     setState(() {
       product.isLiked = !liked;
