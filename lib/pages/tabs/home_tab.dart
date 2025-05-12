@@ -13,133 +13,51 @@ class HomeTab extends StatefulWidget {
   State<StatefulWidget> createState() => _HomeTabState();
 }
 
-class _HomeTabState extends State<HomeTab> {
-
-  final ScrollController _scrollController = ScrollController();
-  final List<SimpleProductResponse> _products= [];
-  bool _isLoading = false;
-  int _currentPage = 0;
-  int _totalPages = 1;
-  String? _jwt;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadJwtAndFirstPage();
-    _scrollController.addListener(_onScroll);
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200 &&
-        !_isLoading &&
-        _currentPage + 1 < _totalPages) {
-      _currentPage += 1;
-      _fetchProducts();
-    }
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadJwtAndFirstPage() async {
-    final prefs = await SharedPreferences.getInstance();
-    _jwt = prefs.getString("auth_token");
-    if (_jwt == null) {
-      _showFeedbackSnackBar("Authentication token missing.", isError: true);
-      return;
-    }
-    _fetchProducts();
-  }
-
-  Future<void> _fetchProducts() async {
-    if (_jwt == null) return;
-    setState(() => _isLoading = true);
-    final (data, error) = await ProductService().getMainPage(_jwt!, _currentPage);
-    if (mounted) {
-      if (error != null || data == null) {
-        _showFeedbackSnackBar(error?.message ?? "Failed to load products.", isError: true);
-      } else {
-        setState(() {
-          _products.addAll(data.content);
-          _totalPages = data.page.totalPages;
-          _isLoading = false;
-        });
-      }
-    }
-    _fetchLikes();
-  }
-
-  void _fetchLikes() async {
-    for (var product in _products) {
-      final (liked, error) = await FavoriteService().checkFavorite(_jwt!, product.productId);
-      if (error == null) {
-        setState(() {
-          product.isLiked = liked!;
-        });
-      }
-    }
-  }
-
-  void _toggleFavorite(int index) async {
-    final product = _products[index];
-    final liked = product.isLiked ?? false;
-    setState(() {
-      product.isLiked = !liked;
-    });
-    final service = FavoriteService();
-    final error = liked
-        ? await service.unfavorite(_jwt!, product.productId)
-        : await service.favorite(_jwt!, product.productId);
-    if (error != null) {
-      setState(() {
-        product.isLiked = liked; // revert
-      });
-      _showFeedbackSnackBar(error.message, isError: true);
-    }
-  }
-
-  void _showFeedbackSnackBar(String message, {bool isError = false}) {
-    if (!mounted) return;
-    final snackBar = SnackBar(
-      content: Text(message),
-      backgroundColor: isError ? Colors.redAccent : Colors.green,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      margin: const EdgeInsets.all(10),
-      action: SnackBarAction(
-        label: "OK",
-        textColor: Colors.white,
-        onPressed: () {
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        },
-      ),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
-  }
-
-  @override
-  State<StatefulWidget> createState() => _HomeTabState();
-}
-
-class _HomeTabState extends State<HomeTab> {
+class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
   final List<SimpleProductResponse> _products = [];
   bool _isLoading = false;
   int _currentPage = 0;
   int _totalPages = 1;
   String? _jwt;
+  bool _isInitialized = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     _loadJWTAndFirstPage();
     _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // This will refresh favorite statuses when the tab becomes visible
+    if (_isInitialized && _products.isNotEmpty && _jwt != null) {
+      _refreshFavoriteStatuses();
+    }
+  }
+
+  // Add new method to refresh favorite statuses
+  Future<void> _refreshFavoriteStatuses() async {
+    if (_jwt == null || _products.isEmpty || !mounted) return;
+
+    for (int i = 0; i < _products.length; i++) {
+      try {
+        final (isFavorite, error) = await FavoriteService().checkFavorite(_jwt!, _products[i].productId);
+        if (error == null && mounted && isFavorite != _products[i].isLiked) {
+          setState(() {
+            _products[i].isLiked = isFavorite;
+          });
+        }
+      } catch (e) {
+        // Silently handle errors to avoid disrupting the UI
+        print("Error refreshing favorite status: $e");
+      }
+    }
   }
 
   void _onScroll() {
@@ -159,30 +77,54 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Future<void> _loadJWTAndFirstPage() async {
-    final prefs = await SharedPreferences.getInstance();
-    _jwt = prefs.getString("auth_token");
-    if (_jwt == null) {
-      _showError("Authentication token is missing.");
-      return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _jwt = prefs.getString("auth_token");
+      });
+      
+      if (_jwt == null) {
+        if (mounted) {
+          _showError("Authentication token is missing.");
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+      
+      await _fetchProducts();
+      _isInitialized = true;
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showError("Failed to load auth token: ${e.toString()}");
+      }
     }
-    _fetchProducts();
   }
 
   Future<void> _fetchProducts() async {
-    if (_jwt == null) return;
+    if (_jwt == null || !mounted) return;
 
-    setState(() => _isLoading = true);
-    final (data, error) = await ProductService().getAllProducts(_jwt!, _currentPage);
-    if (mounted) {
+    try {
+      setState(() => _isLoading = true);
+      final (data, error) = await ProductService().getAllProducts(_jwt!, _currentPage);
+      
+      if (!mounted) return;
+      
       if (error != null || data == null) {
         _showError(error?.message ?? "Failed to load products.");
+        setState(() => _isLoading = false);
       } else {
         setState(() {
           _products.addAll(data.content);
           _totalPages = data.page.totalPages;
+          _isLoading = false;
         });
       }
-      setState(() => _isLoading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showError("Error loading products: ${e.toString()}");
+      }
     }
   }
 
@@ -255,6 +197,8 @@ class _HomeTabState extends State<HomeTab> {
                   _products[index].isLiked = isFavorite;
                 });
               }
+              
+              _refreshFavoriteStatuses();
             }
           },
         );

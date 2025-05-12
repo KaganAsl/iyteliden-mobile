@@ -1,4 +1,3 @@
-
 import 'package:iyteliden_mobile/models/response/category_response.dart';
 import 'package:iyteliden_mobile/models/response/location_response.dart';
 import 'package:iyteliden_mobile/models/response/page_info_response.dart';
@@ -32,6 +31,7 @@ class SimpleProductResponse {
   final String? coverImage; // actually keyName for image service.
   final String productName;
   final double price;
+  final int? userId;
   bool? isLiked;
 
   SimpleProductResponse({
@@ -39,6 +39,7 @@ class SimpleProductResponse {
     this.coverImage,
     required this.productName,
     required this.price,
+    this.userId,
   });
 
   factory SimpleProductResponse.fromJson(Map<String, dynamic> json) {
@@ -47,6 +48,7 @@ class SimpleProductResponse {
       coverImage: json['coverImage'],
       productName: json['productName'],
       price: (json['price'] as num).toDouble(),
+      userId: json['userId'],
     );
   }
 }

@@ -26,6 +26,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   bool _isLiked = false;
   int _currentImageIndex = 0;
   bool _isDeleting = false;
+  bool _favoritesChanged = false;
 
   @override
   void initState() {
@@ -104,6 +105,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       });
       _showFeedbackSnackBar(error.message, isError: true);
     } else {
+      _favoritesChanged = true;
       _showFeedbackSnackBar(liked ? "Removed from favorites" : "Added to favorites");
     }
   }
@@ -145,9 +147,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             appBar: AppBar(
               backgroundColor: Colors.white,
               elevation: 0,
-               leading: IconButton( // Added explicit back button for consistency
-                icon: const Icon(Icons.arrow_back_ios_new), // Or Icons.arrow_back
-                onPressed: () => Navigator.of(context).pop(true), // Return true to trigger refresh
+               leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new),
+                onPressed: () => Navigator.of(context).pop(_favoritesChanged),
               ),
               actions: [
                 _isOwner

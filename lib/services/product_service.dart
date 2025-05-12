@@ -211,48 +211,110 @@ class ProductService {
   }
 
   Future<(SimpleProductListResponse?, ErrorResponse?)> getAllProducts(String jwt, int page) async {
-    final response = await http.get(
-      Uri.parse('$url/products/main?page=$page'),
-      headers: <String, String> {
-        'Content-Type': 'application/json; charset=UTF-8',
-        'Authorization': jwt
-      }
-    );
-    if (response.statusCode == 200) {
-      final json = jsonDecode(response.body);
-      List<SimpleProductResponse> products;
-      if (json is List) {
-        products = json.map((item) => SimpleProductResponse.fromJson(item)).toList();
-      } else {
-        products = SimpleProductListResponse.fromJson(json).content;
-      }
-
-      // Check favorite status for each product
-      for (var product in products) {
-        final (isFavorite, error) = await FavoriteService().checkFavorite(jwt, product.productId);
-        if (error == null) {
-          product.isLiked = isFavorite;
+    try {
+      final response = await http.get(
+        Uri.parse('$url/products/main?page=$page'),
+        headers: <String, String> {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': jwt
         }
-      }
-
-      return (
-        SimpleProductListResponse(
-          content: products,
-          page: json is List 
-            ? PageInfoResponse(
-                size: products.length,
-                number: page,
-                totalElements: products.length,
-                totalPages: 1,
-              )
-            : SimpleProductListResponse.fromJson(json).page,
-        ),
-        null
       );
-    } else {
-      final json = jsonDecode(response.body);
-      final error = ErrorResponse.fromJson(json);
-      return (null, error);
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        List<SimpleProductResponse> products;
+        if (json is List) {
+          products = json.map((item) => SimpleProductResponse.fromJson(item)).toList();
+        } else {
+          products = SimpleProductListResponse.fromJson(json).content;
+        }
+
+        // Check favorite status for each product
+        for (var product in products) {
+          final (isFavorite, error) = await FavoriteService().checkFavorite(jwt, product.productId);
+          if (error == null) {
+            product.isLiked = isFavorite;
+          }
+        }
+
+        return (
+          SimpleProductListResponse(
+            content: products,
+            page: json is List 
+              ? PageInfoResponse(
+                  size: products.length,
+                  number: page,
+                  totalElements: products.length,
+                  totalPages: 1,
+                )
+              : SimpleProductListResponse.fromJson(json).page,
+          ),
+          null
+        );
+      } else {
+        final json = jsonDecode(response.body);
+        final error = ErrorResponse.fromJson(json);
+        return (null, error);
+      }
+    } catch (e) {
+      return (null, ErrorResponse(
+        status: 500, 
+        message: "Error processing products: ${e.toString()}", 
+        timestamp: DateTime.now()
+      ));
+    }
+  }
+
+  Future<(SimpleProductListResponse?, ErrorResponse?)> searchProducts(String jwt, String query, int page) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$url/products/search?searchTerm=$query&page=$page'),
+        headers: <String, String> {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': jwt
+        }
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        List<SimpleProductResponse> products;
+        if (json is List) {
+          products = json.map((item) => SimpleProductResponse.fromJson(item)).toList();
+        } else {
+          products = SimpleProductListResponse.fromJson(json).content;
+        }
+
+        // Check favorite status for each product
+        for (var product in products) {
+          final (isFavorite, error) = await FavoriteService().checkFavorite(jwt, product.productId);
+          if (error == null) {
+            product.isLiked = isFavorite;
+          }
+        }
+
+        return (
+          SimpleProductListResponse(
+            content: products,
+            page: json is List 
+              ? PageInfoResponse(
+                  size: products.length,
+                  number: page,
+                  totalElements: products.length,
+                  totalPages: 1,
+                )
+              : SimpleProductListResponse.fromJson(json).page,
+          ),
+          null
+        );
+      } else {
+        final json = jsonDecode(response.body);
+        final error = ErrorResponse.fromJson(json);
+        return (null, error);
+      }
+    } catch (e) {
+      return (null, ErrorResponse(
+        status: 500, 
+        message: "Error processing search results: ${e.toString()}", 
+        timestamp: DateTime.now()
+      ));
     }
   }
 }

@@ -12,7 +12,7 @@ class FavoriteTab extends StatefulWidget {
   State<StatefulWidget> createState() => _FavoriteTabState();
 }
 
-class _FavoriteTabState extends State<FavoriteTab> {
+class _FavoriteTabState extends State<FavoriteTab> with AutomaticKeepAliveClientMixin {
   
   final ScrollController _scrollController = ScrollController();
   final List<SimpleProductResponse> _favorites = [];
@@ -20,12 +20,24 @@ class _FavoriteTabState extends State<FavoriteTab> {
   int _currentPage = 0;
   int _totalPages = 1;
   String? _jwt;
+  bool _isInitialized = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     _loadJWTAndFirstPage();
     _scrollController.addListener(_onScroll);
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_isInitialized && _favorites.isNotEmpty && _jwt != null) {
+      _refreshFavorites();
+    }
   }
 
   void _onScroll() {
@@ -44,31 +56,70 @@ class _FavoriteTabState extends State<FavoriteTab> {
     super.dispose();
   }
 
-  Future<void> _loadJWTAndFirstPage() async {
-    final prefs = await SharedPreferences.getInstance();
-    _jwt = prefs.getString("auth_token");
-    if (_jwt == null) {
-      _showError("Authentication token is missing.");
-      return;
+  Future<void> _refreshFavorites() async {
+    if (!mounted || _jwt == null) return;
+    
+    try {
+      // Complete reset to get fresh data
+      setState(() {
+        _favorites.clear();
+        _currentPage = 0;
+      });
+      await _fetchFavorites();
+    } catch (e) {
+      print("Error refreshing favorites: $e");
     }
-    _fetchFavorites();
+  }
+
+  Future<void> _loadJWTAndFirstPage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _jwt = prefs.getString("auth_token");
+      });
+      
+      if (_jwt == null) {
+        if (mounted) {
+          _showError("Authentication token is missing.");
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+      
+      await _fetchFavorites();
+      _isInitialized = true;
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showError("Failed to load auth token: ${e.toString()}");
+      }
+    }
   }
 
   Future<void> _fetchFavorites() async {
-    if (_jwt == null) return;
+    if (_jwt == null || !mounted) return;
 
-    setState(() => _isLoading = true);
-    final (data, error) = await FavoriteService().getAllFavorites(_jwt!, _currentPage);
-    if (mounted) {
+    try {
+      setState(() => _isLoading = true);
+      final (data, error) = await FavoriteService().getAllFavorites(_jwt!, _currentPage);
+      
+      if (!mounted) return;
+      
       if (error != null || data == null) {
         _showError(error?.message ?? "Failed to load favorites.");
+        setState(() => _isLoading = false);
       } else {
         setState(() {
           _favorites.addAll(data.content);
           _totalPages = data.page.totalPages;
+          _isLoading = false;
         });
       }
-      setState(() => _isLoading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showError("Error loading favorites: ${e.toString()}");
+      }
     }
   }
 
@@ -139,12 +190,9 @@ class _FavoriteTabState extends State<FavoriteTab> {
                 builder: (context) => ProductDetailPage(productId: _favorites[index].productId),
               ),
             );
-            if (shouldRefresh == true) {
-              setState(() {
-                _favorites.clear();
-                _currentPage = 0;
-              });
-              _fetchFavorites();
+            if (shouldRefresh == true && mounted) {
+              // Refresh all favorites since status might have changed
+              _refreshFavorites();
             }
           },
         );
