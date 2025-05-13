@@ -4,6 +4,7 @@ import 'package:iyteliden_mobile/pages/profile_page.dart';
 import 'package:iyteliden_mobile/pages/search_page.dart';
 import 'package:iyteliden_mobile/pages/tabs/favorite_tab.dart';
 import 'package:iyteliden_mobile/pages/tabs/home_tab.dart';
+import 'package:iyteliden_mobile/pages/tabs/messages_tab.dart';
 import 'package:iyteliden_mobile/utils/app_colors.dart';
 
 class MainPage extends StatefulWidget {
@@ -32,7 +33,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   void _refreshAllTabs() {
     _tabs = [
       const HomeTab(),
-      const Center(child: Text("Messages"),),
+      const MessagesTab(),
       const Placeholder(),
       const FavoriteTab(),
     ];

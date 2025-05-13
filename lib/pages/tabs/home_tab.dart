@@ -157,6 +157,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (_products.isEmpty && _isLoading) {
       return const Center(child: CircularProgressIndicator(),);
     }

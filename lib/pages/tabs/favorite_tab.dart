@@ -67,7 +67,7 @@ class _FavoriteTabState extends State<FavoriteTab> with AutomaticKeepAliveClient
       });
       await _fetchFavorites();
     } catch (e) {
-      print("Error refreshing favorites: $e");
+      _showError("Error");
     }
   }
 
@@ -157,6 +157,7 @@ class _FavoriteTabState extends State<FavoriteTab> with AutomaticKeepAliveClient
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (_favorites.isEmpty && _isLoading) {
       return const Center(child: CircularProgressIndicator(),);
     }

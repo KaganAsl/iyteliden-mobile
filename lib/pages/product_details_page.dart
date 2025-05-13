@@ -236,10 +236,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                         // This part is reached only if there was an error and navigation did not occur.
                                         if (mounted) {
                                           setState(() { _isDeleting = false; });
-                                          if (finalErrorMessageForSnackbar != null) {
-                                            _showFeedbackSnackBar(finalErrorMessageForSnackbar, isError: true);
-                                          }
-                                        }
+                                          _showFeedbackSnackBar(finalErrorMessageForSnackbar, isError: true);
+                                                                                }
                                         // ---- END OF INTEGRATED DELETE LOGIC ----
                                       },
                                       child: _isDeleting
