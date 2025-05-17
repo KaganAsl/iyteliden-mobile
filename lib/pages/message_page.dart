@@ -37,6 +37,8 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
   bool _isPolling = false;
   File? _selectedImage;
   final Map<String, String> _imageUrlCache = {};
+  bool _isLoadingOlder = false;
+  DateTime _lastLoadTime = DateTime.now();
 
   @override
   void initState() {
@@ -58,16 +60,24 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
   }
 
   void _scrollListener() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.8) {
-      if (!isLoading && hasMorePages) {
-        _loadOlderMessages();
-      }
+    // Prevent multiple rapid scrolls from triggering loads
+    if (DateTime.now().difference(_lastLoadTime).inMilliseconds < 500) {
+      return;
+    }
+    
+    if (!_isLoadingOlder && 
+        hasMorePages && 
+        _scrollController.position.pixels > _scrollController.position.maxScrollExtent * 0.7) {
+      _loadOlderMessages();
     }
   }
 
   Future<void> _loadOlderMessages() async {
-    if (isLoading || !hasMorePages) return;
+    if (_isLoadingOlder || !hasMorePages) return;
 
+    _isLoadingOlder = true;
+    _lastLoadTime = DateTime.now();
+    
     setState(() {
       isLoading = true;
     });
@@ -80,6 +90,7 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
         setState(() {
           error = 'Not authenticated';
           isLoading = false;
+          _isLoadingOlder = false;
         });
         return;
       }
@@ -95,22 +106,33 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
         setState(() {
           error = errorResponse.message;
           isLoading = false;
+          _isLoadingOlder = false;
         });
         return;
       }
 
       if (response != null) {
         setState(() {
-          messages.addAll(response.content);
+          // Filter out any messages we already have
+          final existingIds = messages.map((m) => m.messageId).toSet();
+          final newMessages = response.content.where((m) => !existingIds.contains(m.messageId)).toList();
+          
+          // Add older messages to the end of the list
+          if (newMessages.isNotEmpty) {
+            messages.addAll(newMessages);
+          }
+          
           hasMorePages = nextPage < response.page.totalPages - 1;
           currentPage = nextPage;
           isLoading = false;
+          _isLoadingOlder = false;
         });
       }
     } catch (e) {
       setState(() {
         error = e.toString();
         isLoading = false;
+        _isLoadingOlder = false;
       });
     }
   }
@@ -169,32 +191,36 @@ class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
 
       if (response != null) {
         setState(() {
-          // Create a map of existing messages for quick lookup
-          final existingMessageIds = messages.map((m) => m.messageId).toSet();
+          final bool wasEmpty = messages.isEmpty;
+          final Set<int> newMessageIds = response.content.map((m) => m.messageId).toSet();
           
-          // Add only new messages
-          final newMessages = response.content.where(
-            (newMsg) => !existingMessageIds.contains(newMsg.messageId)
-          ).toList();
+          // Keep older messages (ones that aren't in the new response)
+          final oldMessages = messages.where((m) => !newMessageIds.contains(m.messageId)).toList();
           
-          if (newMessages.isNotEmpty) {
-            // Add new messages at the beginning
-            messages.insertAll(0, newMessages);
+          // Replace first page with new data
+          messages = [...response.content];
+          
+          // Add back older messages we had previously loaded
+          if (oldMessages.isNotEmpty) {
+            messages.addAll(oldMessages);
           }
           
           hasMorePages = 0 < response.page.totalPages - 1;
           currentPage = 0;
           isLoading = false;
-        });
-
-        // Scroll to bottom after messages are loaded
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scrollController.hasClients) {
-            _scrollController.animateTo(
-              0,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
+          
+          // Only scroll to bottom on initial load or when new messages arrive
+          if (wasEmpty) {
+            // Scroll to bottom after messages are loaded
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_scrollController.hasClients) {
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                );
+              }
+            });
           }
         });
       }

@@ -8,6 +8,7 @@ import 'package:iyteliden_mobile/services/favorite_service.dart';
 import 'package:iyteliden_mobile/services/image_service.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:iyteliden_mobile/services/message_service.dart';
 
 class ProductDetailPage extends StatefulWidget {
 
@@ -397,7 +398,71 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   if (!_isOwner)
                     ElevatedButton(
                       onPressed: () {
-                        // Implement message functionality here
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            final TextEditingController messageController = TextEditingController();
+                            return AlertDialog(
+                              title: const Text('Send Message'),
+                              content: Card(
+                                elevation: 0,
+                                child: TextField(
+                                  controller: messageController,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Type your message...',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  maxLines: 3,
+                                  autofocus: true,
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    if (messageController.text.trim().isEmpty) {
+                                      _showFeedbackSnackBar('Message cannot be empty', isError: true);
+                                      return;
+                                    }
+
+                                    Navigator.of(context).pop(); // Close dialog
+                                    
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final jwt = prefs.getString('auth_token');
+                                    
+                                    if (jwt == null) {
+                                      _showFeedbackSnackBar('Not authenticated', isError: true);
+                                      return;
+                                    }
+
+                                    final (message, error) = await MessageService().sendSimpleMessage(
+                                      jwt,
+                                      messageController.text.trim(),
+                                      widget.productId
+                                    );
+
+                                    if (error != null) {
+                                      _showFeedbackSnackBar(error.message, isError: true);
+                                      return;
+                                    }
+
+                                    if (message != null) {
+                                      _showFeedbackSnackBar('Message sent successfully! You can see in messages tab.');
+                                      // Navigate back
+                                      if (context.mounted) {
+                                        Navigator.of(context).pop();
+                                      }
+                                    }
+                                  },
+                                  child: const Text('Send'),
+                                ),
+                              ],
+                            );
+                          },
+                        );
                       },
                       child: const Text("Send Message"),
                     ),
