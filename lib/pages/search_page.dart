@@ -314,7 +314,9 @@ class _SearchPageState extends State<SearchPage> {
                   child: Text(
                     _currentQuery.isEmpty
                         ? "Enter a search term to find products"
-                        : "No products found for '$_currentQuery'",
+                        : _isLoading 
+                            ? "Searching..."
+                            : "No products found for '$_currentQuery'",
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                 )

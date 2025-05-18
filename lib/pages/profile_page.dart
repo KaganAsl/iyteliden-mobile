@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/models/response/user_response.dart';
 import 'package:iyteliden_mobile/pages/login_page.dart';
+import 'package:iyteliden_mobile/pages/landing_page.dart';
 import 'package:iyteliden_mobile/pages/product_details_page.dart';
+import 'package:iyteliden_mobile/pages/edit_product_page.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
 import 'package:iyteliden_mobile/services/user_service.dart';
 import 'package:iyteliden_mobile/utils/app_colors.dart';
@@ -44,11 +46,35 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.remove("auth_token");
-    prefs.remove("auth_expiry");
-    _showFeedbackSnackBar("Successfully logged out");
-    Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginPage()));
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log Out'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Log Out', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      prefs.remove("auth_token");
+      prefs.remove("auth_expiry");
+      _showFeedbackSnackBar("Successfully logged out.");
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LandingPage()),
+        (Route<dynamic> route) => false,
+      );
+    }
   }
 
   void _showFeedbackSnackBar(String message, {bool isError = false}) {
@@ -159,7 +185,7 @@ class _ProductListState extends State<ProductList> {
   @override
   void initState() {
     super.initState();
-    _fetchPage();                    // page 0
+    _fetchPage();
     _controller.addListener(_onScroll);
   }
 
@@ -170,7 +196,6 @@ class _ProductListState extends State<ProductList> {
   }
 
   void _onScroll() {
-    // 200px from bottom triggers next page
     if (_controller.position.pixels >=
             _controller.position.maxScrollExtent - 200 &&
         !_isLoading &&
@@ -180,7 +205,14 @@ class _ProductListState extends State<ProductList> {
     }
   }
 
-  Future<void> _fetchPage() async {
+  Future<void> _fetchPage({bool clearCurrent = false}) async {
+    if (clearCurrent) {
+      setState(() {
+        _products.clear();
+        _currentPage = 0;
+        _totalPages = 1;
+      });
+    }
     setState(() => _isLoading = true);
     final (pageData, error) = await ProductService()
         .getSelfSimpleProducts(widget.jwt, widget.ownerId, _currentPage);
@@ -218,27 +250,35 @@ class _ProductListState extends State<ProductList> {
         mainAxisSpacing: 12,
         childAspectRatio: 3/4,
       ),
-      itemCount: _products.length + (_isLoading ? 1 : 0),
+      itemCount: _products.length + (_isLoading && _currentPage + 1 < _totalPages ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= _products.length) {
           return const Center(child: CircularProgressIndicator(),);
         }
+        final product = _products[index];
         return SimpleSelfProductCard(
           jwt: widget.jwt,
-          product: _products[index],
+          product: product,
           onTap: () async {
             final shouldRefresh = await Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ProductDetailPage(productId: _products[index].productId),
+                builder: (context) => ProductDetailPage(productId: product.productId),
               ),
             );
-            if (shouldRefresh == true) {
-              setState(() {
-                _products.clear();
-                _currentPage = 0;
-              });
-              _fetchPage();
+            if (shouldRefresh == true && mounted) {
+              _fetchPage(clearCurrent: true);
+            }
+          },
+          onEdit: () async {
+            final updated = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => EditProductPage(productId: product.productId),
+              ),
+            );
+            if (updated == true && mounted) {
+              _fetchPage(clearCurrent: true);
             }
           },
           onDelete: () async {
@@ -259,25 +299,22 @@ class _ProductListState extends State<ProductList> {
                 ],
               ),
             );
-            if (confirm == true) {
-              final error = await ProductService().deleteProduct(widget.jwt, _products[index].productId);
-              if (error != null) {
-                if (error.message.contains('foreign key constraint fails')) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Cannot delete this product because it has active bids.'), backgroundColor: Colors.redAccent),
-                  );
+
+            if (confirm == true && mounted) {
+              final error = await ProductService().deleteProduct(widget.jwt, product.productId);
+              if (mounted) {
+                if (error != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Failed to delete product: ${error.message}'),
+                    backgroundColor: Colors.redAccent,
+                  ));
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(error.message), backgroundColor: Colors.redAccent),
-                  );
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Product deleted successfully'),
+                    backgroundColor: Colors.green,
+                  ));
+                  _fetchPage(clearCurrent: true);
                 }
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Product deleted successfully'), backgroundColor: Colors.green),
-                );
-                setState(() {
-                  _products.removeAt(index);
-                });
               }
             }
           },

@@ -99,6 +99,19 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Register'),
+        backgroundColor: Colors.white,
+        elevation: 1,
+        iconTheme: const IconThemeData(color: AppColors.text),
+        titleTextStyle: const TextStyle(color: AppColors.text, fontSize: 20, fontWeight: FontWeight.bold),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.popUntil(context, (route) => route.isFirst);
+          },
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
