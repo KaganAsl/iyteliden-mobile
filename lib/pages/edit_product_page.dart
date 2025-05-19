@@ -102,7 +102,7 @@ class _EditProductPageState extends State<EditProductPage> {
       setState(() {
         _locations = locations ?? [];
         _categories = categories ?? [];
-        if (_product!.category != null && _categories.isNotEmpty) { // category is not nullable in DetailedSelfProductResponse
+        if (_categories.isNotEmpty) { // category is not nullable in DetailedSelfProductResponse
           _selectedCategory = _categories.firstWhere((cat) => cat.categoryId == _product!.category.categoryId, orElse: () => _categories.first);
         }
         if (_product!.locations.isNotEmpty && _locations.isNotEmpty) { // locations is not nullable

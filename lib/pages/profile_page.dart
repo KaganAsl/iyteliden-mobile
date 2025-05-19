@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/models/response/user_response.dart';
-import 'package:iyteliden_mobile/pages/login_page.dart';
 import 'package:iyteliden_mobile/pages/landing_page.dart';
 import 'package:iyteliden_mobile/pages/product_details_page.dart';
 import 'package:iyteliden_mobile/pages/edit_product_page.dart';
