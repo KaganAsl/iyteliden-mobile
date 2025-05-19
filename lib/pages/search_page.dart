@@ -29,6 +29,7 @@ class _SearchPageState extends State<SearchPage> {
   String? _jwt;
   String _currentQuery = '';
   int? _userId;
+  // ignore: unused_field
   bool _favoritesChanged = false;
   bool _showHistory = true;
 
