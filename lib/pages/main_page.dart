@@ -103,6 +103,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text("Iyteliden"),
         backgroundColor: Colors.white,
         elevation: 1,
