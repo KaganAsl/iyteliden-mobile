@@ -6,6 +6,7 @@ import 'package:iyteliden_mobile/models/response/location_response.dart';
 // Changed from ProductResponse to DetailedSelfProductResponse
 import 'package:iyteliden_mobile/models/response/product_response.dart'; 
 import 'package:iyteliden_mobile/services/category_service.dart';
+import 'package:iyteliden_mobile/services/image_service.dart';
 import 'package:iyteliden_mobile/services/location_service.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,9 +25,11 @@ class _EditProductPageState extends State<EditProductPage> {
   final _productNameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
+  final _imageService = ImageService();
   
   final List<File> _newSelectedImages = [];
   List<String> _existingImageUrls = []; 
+  List<String> _existingImageKeys = [];
   final List<Location> _selectedLocations = [];
   CategoryResponse? _selectedCategory;
   
@@ -76,7 +79,15 @@ class _EditProductPageState extends State<EditProductPage> {
       _productNameController.text = _product!.productName;
       _descriptionController.text = _product!.description;
       _priceController.text = _product!.price.toString();
-      _existingImageUrls = List<String>.from(_product!.imageUrls); // Use imageUrls from DetailedSelfProductResponse
+      for (var key in _product!.imageUrls) {
+        final (img, err) = await _imageService.getImage(jwt, key);
+        if (err!= null) {
+          _showFeedbackSnackBar("Error fetching image: ${err.message}", isError: true);
+          throw Exception(err.message);
+        }
+        _existingImageUrls.add(img!.url);
+        _existingImageKeys.add(key);
+      }
       
       final (locations, locationError) = await locationService.getLocations(jwt);
       final (categories, categoryError) = await categoryService.getCategories(jwt);
@@ -135,6 +146,7 @@ class _EditProductPageState extends State<EditProductPage> {
       // Here you might want to call an API to delete the image from the server
       // For now, just remove from the list
       _existingImageUrls.removeAt(index);
+      _existingImageKeys.removeAt(index);
       // Potentially, you'd add the image URL to a list of images to be deleted on update.
     });
   }
@@ -182,7 +194,7 @@ class _EditProductPageState extends State<EditProductPage> {
         productUpdateData, 
         _newSelectedImages, 
         _selectedLocations.map((l) => l.locationId).toList(),
-        _existingImageUrls, // Pass existing image URLs to be kept
+        _existingImageKeys, // Pass existing image URLs to be kept
       );
 
 

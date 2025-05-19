@@ -90,7 +90,7 @@ class _LandingPageState extends State<LandingPage> {
             children: <Widget>[
               // App Logo
               Image.asset(
-                'logo.png', // Assuming logo.png is in the assets folder
+                'assets/logo.png', // Assuming logo.png is in the assets folder
                 height: 150,
               ),
               const SizedBox(height: 20),

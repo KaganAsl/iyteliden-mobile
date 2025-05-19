@@ -22,413 +22,341 @@ class MessagePage extends StatefulWidget {
   State<MessagePage> createState() => _MessagePageState();
 }
 
-class MessageImage extends StatefulWidget {
-  final String imageKey;
-  final Future<String?> Function(String) getImageUrl;
-
-  const MessageImage({
-    super.key,
-    required this.imageKey,
-    required this.getImageUrl,
-  });
-
-  @override
-  State<MessageImage> createState() => _MessageImageState();
-}
-
-class _MessageImageState extends State<MessageImage> with AutomaticKeepAliveClientMixin {
-  String? _cachedUrl;
-  bool _isLoading = true;
-
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadImage();
-  }
-
-  Future<void> _loadImage() async {
-    if (_cachedUrl != null) return;
-    
-    final url = await widget.getImageUrl(widget.imageKey);
-    if (mounted) {
-      setState(() {
-        _cachedUrl = url;
-        _isLoading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    
-    if (_isLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8.0),
-        child: SizedBox(
-          width: 120,
-          height: 120,
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      );
-    }
-
-    if (_cachedUrl == null) {
-      return const SizedBox();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          _cachedUrl!,
-          width: 180,
-          height: 180,
-          fit: BoxFit.cover,
-          cacheWidth: 360,
-          cacheHeight: 360,
-        ),
-      ),
-    );
-  }
-}
-
-class _MessagePageState extends State<MessagePage> {
+class _MessagePageState extends State<MessagePage> with WidgetsBindingObserver {
   final MessageService _messageService = MessageService();
   final ImageService _imageService = ImageService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final ImagePicker _imagePicker = ImagePicker();
   
   List<Message> messages = [];
-  String? error;
   bool isLoading = true;
-  bool isLoadingMore = false;
+  String? error;
   int currentPage = 0;
   bool hasMorePages = true;
-  Timer? _messageTimer;
+  Timer? _pollingTimer;
+  bool _isPolling = false;
   File? _selectedImage;
   final Map<String, String> _imageUrlCache = {};
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadMessages();
-    _startMessagePolling();
     _scrollController.addListener(_scrollListener);
+    _startPolling(); // Start polling immediately
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopPolling();
+    _messageController.dispose();
+    _scrollController.removeListener(_scrollListener);
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _scrollListener() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      if (!isLoadingMore && hasMorePages) {
-        _loadMoreMessages();
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.8) {
+      if (!isLoading && hasMorePages) {
+        _loadOlderMessages();
       }
     }
   }
 
-  Future<void> _loadMoreMessages() async {
-    if (isLoadingMore || !hasMorePages) return;
+  Future<void> _loadOlderMessages() async {
+    if (isLoading || !hasMorePages) return;
 
     setState(() {
-      isLoadingMore = true;
+      isLoading = true;
     });
 
-    final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('auth_token');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jwt = prefs.getString('auth_token');
+      
+      if (jwt == null) {
+        setState(() {
+          error = 'Not authenticated';
+          isLoading = false;
+        });
+        return;
+      }
 
-    if (jwt == null) {
-      _showFeedbackSnackBar("Not Authenticated", isError: true);
+      final nextPage = currentPage + 1;
+      final (response, errorResponse) = await _messageService.getUserConversationMessages(
+        jwt,
+        nextPage,
+        widget.conversation,
+      );
+      
+      if (errorResponse != null) {
+        setState(() {
+          error = errorResponse.message;
+          isLoading = false;
+        });
+        return;
+      }
+
+      if (response != null) {
+        setState(() {
+          messages.addAll(response.content);
+          hasMorePages = nextPage < response.page.totalPages - 1;
+          currentPage = nextPage;
+          isLoading = false;
+        });
+      }
+    } catch (e) {
       setState(() {
-        isLoadingMore = false;
-      });
-      return;
-    }
-
-    final nextPage = currentPage + 1;
-    final (response, errorResponse) = await _messageService.getUserConversationMessages(
-      jwt,
-      nextPage,
-      widget.conversation,
-    );
-
-    if (errorResponse != null) {
-      _showFeedbackSnackBar(errorResponse.message, isError: true);
-      setState(() {
-        isLoadingMore = false;
-      });
-      return;
-    }
-
-    if (response != null) {
-      setState(() {
-        for (var message in response.content) {
-          if (!messages.any((m) => m.messageId == message.messageId)) {
-            messages.add(message);
-          }
-        }
-        hasMorePages = nextPage < response.page.totalPages - 1;
-        currentPage = nextPage;
-        isLoadingMore = false;
+        error = e.toString();
+        isLoading = false;
       });
     }
   }
 
   @override
-  void dispose() {
-    _scrollController.removeListener(_scrollListener);
-    _messageTimer?.cancel();
-    _messageController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _loadMessages() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('auth_token');
-
-    if (jwt == null) {
-      _showFeedbackSnackBar("Not Authenticated", isError: true);
-      setState(() {
-        error = "Not Authenticated";
-        isLoading = false;
-      });
-      return;
-    }
-
-    final (response, errorResponse) = await _messageService.getUserConversationMessages(jwt, currentPage, widget.conversation);
-
-    if (errorResponse != null) {
-      setState(() {
-        error = errorResponse.message;
-        isLoading = false;
-      });
-      return;
-    }
-    if (response != null) {
-      setState(() {
-        for (var message in response.content) {
-          if (!messages.any((m) => m.messageId == message.messageId)) {
-            messages.add(message);
-          }
-        }
-        hasMorePages = currentPage < response.page.totalPages - 1;
-        isLoading = false;
-      }); 
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startPolling();
+    } else if (state == AppLifecycleState.paused) {
+      _stopPolling();
     }
   }
 
-  void _loadNewMessages() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('auth_token');
-
-    if (jwt == null) {
-      _showFeedbackSnackBar("Not Authenticated", isError: true);
-      setState(() {
-        error = "Not Authenticated";
-        isLoading = false;
+  void _startPolling() {
+    if (!_isPolling) {
+      _isPolling = true;
+      _pollingTimer?.cancel(); // Cancel any existing timer
+      _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+        _loadMessages();
       });
-      return;
-    }
-
-    final (response, errorResponse) = await _messageService.getUserConversationMessages(jwt, currentPage, widget.conversation);
-
-    if (errorResponse != null) {
-      setState(() {
-        error = errorResponse.message;
-        isLoading = false;
-      });
-      return;
-    }
-    if (response != null) {
-      setState(() {
-        for (var message in response.content) {
-          if (!messages.any((m) => m.messageId == message.messageId)) {
-            messages.insert(0, message);
-          }
-        }
-        hasMorePages = currentPage < response.page.totalPages - 1;
-        isLoading = false;
-      }); 
     }
   }
 
-  void _startMessagePolling() {
-    // Poll for new messages every 5 seconds
-    _messageTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (mounted) {
-        _loadNewMessages();
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+    _isPolling = false;
+  }
+
+  Future<void> _loadMessages() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jwt = prefs.getString('auth_token');
+      
+      if (jwt == null) {
+        setState(() {
+          error = 'Not authenticated';
+          isLoading = false;
+        });
+        return;
       }
-    });
-  }
 
-  Future<String?> _getImageUrl(String key) async {
-    if (_imageUrlCache.containsKey(key)) {
-      return _imageUrlCache[key];
-    }
+      final (response, errorResponse) = await _messageService.getUserConversationMessages(
+        jwt,
+        0, // Reset to first page
+        widget.conversation,
+      );
+      
+      if (errorResponse != null) {
+        setState(() {
+          error = errorResponse.message;
+          isLoading = false;
+        });
+        return;
+      }
 
-    final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('auth_token');
+      if (response != null) {
+        setState(() {
+          // Create a map of existing messages for quick lookup
+          final existingMessageIds = messages.map((m) => m.messageId).toSet();
+          
+          // Add only new messages
+          final newMessages = response.content.where(
+            (newMsg) => !existingMessageIds.contains(newMsg.messageId)
+          ).toList();
+          
+          if (newMessages.isNotEmpty) {
+            // Add new messages at the beginning
+            messages.insertAll(0, newMessages);
+          }
+          
+          hasMorePages = 0 < response.page.totalPages - 1;
+          currentPage = 0;
+          isLoading = false;
+        });
 
-    if (jwt == null) {
-      _showFeedbackSnackBar("Not Authenticated", isError: true);
+        // Scroll to bottom after messages are loaded
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    } catch (e) {
       setState(() {
-        error = "Not Authenticated";
+        error = e.toString();
         isLoading = false;
       });
-      return null;
     }
-    final (response, errorResponse) = await _imageService.getImage(jwt, key);
-    if (errorResponse != null) {
-      setState(() {
-        error = errorResponse.message;
-        isLoading = false;
-      });
-      return null;
-    }
-    if (response != null) {
-      _imageUrlCache[key] = response.url;
-      return response.url;
-    }
-    return null;
-  }
-
-  void _showFeedbackSnackBar(String message, {bool isError = false}) {
-    if (!mounted) return;
-    final snackBar = SnackBar(
-      content: Text(message),
-      backgroundColor: isError ? Colors.redAccent : Colors.green,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      margin: const EdgeInsets.all(10),
-      action: SnackBarAction(
-        label: "OK",
-        textColor: Colors.white,
-        onPressed: () {
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        },
-      ),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   Future<void> _pickImage() async {
-    final XFile? image = await _imagePicker.pickImage(source: ImageSource.gallery);
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1920,
+      maxHeight: 1920,
+      imageQuality: 85,
+    );
+
     if (image != null) {
       setState(() {
         _selectedImage = File(image.path);
-        _messageController.clear();
+        _messageController.clear(); // Clear any text when image is selected
       });
     }
   }
 
   Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty && _selectedImage == null) return;
+    if (_messageController.text.isEmpty && _selectedImage == null) return;
 
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('auth_token');
-
+    
     if (jwt == null) {
-      _showFeedbackSnackBar("Not Authenticated", isError: true);
+      setState(() {
+        error = 'Not authenticated';
+      });
       return;
     }
 
-    final message = _messageController.text.trim();
-    _messageController.clear();
-
-    final Map<String, dynamic> messageData = {
-      "productId": widget.conversation.productId,
-      "content": _selectedImage != null ? null : message,
-      "bidId": null,
-      "recipientId": widget.conversation.isMyProduct ? widget.conversation.recipientId : null,
+    final messageData = {
+      'productId': widget.conversation.productId,
+      'recipientId': widget.conversation.isMyProduct 
+          ? widget.conversation.recipientId 
+          : null,
+      'content': _messageController.text.isEmpty ? null : _messageController.text,
     };
 
-    final (response, errorResponse) = await _messageService.sendMessage(
-      jwt,
-      messageData,
-      _selectedImage ?? File(''),
+    final optimisticMessage = Message(
+      messageId: DateTime.now().millisecondsSinceEpoch,
+      timestamp: DateTime.now(),
+      productId: widget.conversation.productId,
+      senderId: widget.conversation.isMyProduct 
+          ? widget.conversation.senderId 
+          : widget.conversation.recipientId,
+      recipientId: widget.conversation.isMyProduct 
+          ? widget.conversation.recipientId 
+          : widget.conversation.senderId,
+      content: _messageController.text.isEmpty ? null : _messageController.text,
+      imageUrl: _selectedImage != null ? 'pending' : null,
+      bidId: null,
+      myMessage: true,
     );
-
-    if (errorResponse != null) {
-      _showFeedbackSnackBar(errorResponse.message, isError: true);
-      return;
-    }
-
-    if (response != null) {
-      setState(() {
-        messages.insert(0, response);
-        _selectedImage = null;
-      });
-      _scrollToBottom();
-    }
-  }
-
-  void _removeSelectedImage() {
+    
     setState(() {
-      _selectedImage = null;
+      messages.insert(0, optimisticMessage);
     });
-  }
 
-  void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
+    try {
+      final (response, errorResponse) = await _messageService.sendMessage(
+        jwt,
+        messageData,
+        _selectedImage ?? File(''),
       );
+
+      if (errorResponse != null) {
+        setState(() {
+          messages.removeAt(0);
+          error = errorResponse.message;
+        });
+        return;
+      }
+
+      if (response != null) {
+        setState(() {
+          messages[0] = response;
+          _messageController.clear();
+          _selectedImage = null;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        messages.removeAt(0);
+        error = e.toString();
+      });
     }
   }
 
   Widget _buildMessageBubble(Message message) {
     final isMe = message.myMessage;
-    final hasImage = message.imageUrl != null && message.imageUrl!.isNotEmpty;
     
+    Widget messageContent;
+    if (message.content != null) {
+      messageContent = Text(
+        message.content!,
+        style: TextStyle(
+          color: isMe ? Colors.white : Colors.black,
+        ),
+      );
+    } else if (message.imageUrl != null) {
+      if (_imageUrlCache.containsKey(message.imageUrl)) {
+        messageContent = Image.network(
+          _imageUrlCache[message.imageUrl]!,
+          width: 200,
+          fit: BoxFit.cover,
+        );
+      } else {
+        messageContent = FutureBuilder(
+          future: Future(() async {
+            final prefs = await SharedPreferences.getInstance();
+            final result = await _imageService.getImage(
+              prefs.getString('auth_token') ?? '',
+              message.imageUrl!,
+            );
+            if (result.$1 != null) {
+              _imageUrlCache[message.imageUrl!] = result.$1!.url;
+            }
+            return result;
+          }),
+          builder: (context, snapshot) {
+            if (snapshot.hasData && snapshot.data!.$1 != null) {
+              return Image.network(
+                snapshot.data!.$1!.url,
+                width: 200,
+                fit: BoxFit.cover,
+              );
+            }
+            return const SizedBox(
+              width: 200,
+              height: 200,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          },
+        );
+      }
+    } else {
+      messageContent = const Text('Unsupported message type');
+    }
+
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isMe ? AppColors.primary : Colors.grey[300],
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (hasImage)
-              MessageImage(
-                imageKey: message.imageUrl!,
-                getImageUrl: _getImageUrl,
-              ),
-            if (message.content != null && message.content!.isNotEmpty)
-              Text(
-                message.content!,
-                style: TextStyle(
-                  color: isMe ? Colors.white : Colors.black,
-                  fontSize: 16,
-                ),
-              ),
-            const SizedBox(height: 4),
-            Text(
-              _formatMessageTime(message.timestamp),
-              style: TextStyle(
-                color: isMe ? Colors.white70 : Colors.black54,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
+        child: messageContent,
       ),
     );
-  }
-
-  String _formatMessageTime(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -436,110 +364,105 @@ class _MessagePageState extends State<MessagePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.conversation.productName),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
           Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : error != null
-                    ? Center(child: Text(error!, style: const TextStyle(color: Colors.red)))
-                    : Stack(
-                        children: [
-                          ListView.builder(
-                            reverse: true,
-                            controller: _scrollController,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            itemCount: messages.length + (hasMorePages ? 1 : 0),
-                            itemBuilder: (context, index) {
-                              if (index == messages.length) {
-                                return const Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(8.0),
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                );
-                              }
-                              return _buildMessageBubble(messages[index]);
-                            },
-                          ),
-                          if (isLoadingMore)
-                            const Positioned(
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
-                              child: LinearProgressIndicator(),
+            child: RefreshIndicator(
+              onRefresh: _loadMessages,
+              child: isLoading && messages.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : error != null
+                      ? Center(child: Text('Error: $error'))
+                      : messages.isEmpty
+                          ? const Center(child: Text('No messages yet'))
+                          : ListView.builder(
+                              controller: _scrollController,
+                              reverse: true,
+                              itemCount: messages.length + (hasMorePages ? 1 : 0),
+                              itemBuilder: (context, index) {
+                                if (index == messages.length) {
+                                  return const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(8.0),
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  );
+                                }
+                                return _buildMessageBubble(messages[index]);
+                              },
                             ),
-                        ],
-                      ),
+            ),
           ),
           if (_selectedImage != null)
             Container(
+              height: 100,
               padding: const EdgeInsets.all(8),
-              color: Colors.grey[100],
               child: Stack(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.file(
-                      _selectedImage!,
-                      height: 100,
-                      width: 100,
-                      fit: BoxFit.cover,
-                    ),
+                  Image.file(
+                    _selectedImage!,
+                    width: 100,
+                    height: 100,
+                    fit: BoxFit.cover,
                   ),
                   Positioned(
-                    top: 0,
                     right: 0,
+                    top: 0,
                     child: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.red),
-                      onPressed: _removeSelectedImage,
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        setState(() {
+                          _selectedImage = null;
+                        });
+                      },
                     ),
                   ),
                 ],
               ),
             ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
+                  color: Colors.grey.withValues(alpha: 0.2),
                   spreadRadius: 1,
                   blurRadius: 3,
                   offset: const Offset(0, -1),
                 ),
               ],
             ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.image, color: AppColors.primary),
-                    onPressed: _selectedImage == null ? _pickImage : null,
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      enabled: _selectedImage == null,
-                      decoration: InputDecoration(
-                        hintText: _selectedImage == null ? 'Type a message...' : 'Image selected',
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                      maxLines: null,
-                      textCapitalization: TextCapitalization.sentences,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.image),
+                  onPressed: _selectedImage == null ? _pickImage : null,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.gavel),
+                  onPressed: () {
+                    // TODO: Implement bid functionality
+                  },
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    enabled: _selectedImage == null,
+                    decoration: InputDecoration(
+                      hintText: _selectedImage != null 
+                          ? 'Image selected' 
+                          : 'Type a message...',
+                      border: InputBorder.none,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.send, color: AppColors.primary),
-                    onPressed: _sendMessage,
-                  ),
-                ],
-              ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  onPressed: _sendMessage,
+                ),
+              ],
             ),
           ),
         ],

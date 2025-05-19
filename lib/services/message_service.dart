@@ -111,39 +111,4 @@ class MessageService {
       ));
     }
   }
-
-  Future<(Message?, ErrorResponse?)> sendSimpleMessage(String jwt, String content, int productId) async {
-    final uri = Uri.parse('$url/messages/send');
-    final request = http.MultipartRequest('POST', uri);
-    request.headers['Authorization'] = jwt;
-
-    // Add message data as JSON part
-    final messageJson = "{\"productId\": $productId, \"content\": \"$content\", \"bidId\": null, \"recipientId\": null}";
-    request.files.add(
-      http.MultipartFile.fromString(
-        'messageData',
-        messageJson,
-        contentType: MediaType('application', 'json'),
-      )
-    );
-
-    try {
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 201) {
-        final json = jsonDecode(response.body);
-        return (Message.fromJson(json), null);
-      } else {
-        final json = jsonDecode(response.body);
-        return (null, ErrorResponse.fromJson(json));
-      }
-    } catch (e) {
-      return (null, ErrorResponse(
-        message: e.toString(),
-        status: 500,
-        timestamp: DateTime.now()
-      ));
-    }
-  }
 }
