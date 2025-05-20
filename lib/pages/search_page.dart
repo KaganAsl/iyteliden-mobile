@@ -130,10 +130,12 @@ class _SearchPageState extends State<SearchPage> {
         _showError(error?.message ?? "Failed to search products.");
         setState(() => _isLoading = false);
       } else {
-        // Filter out user's own products, handling null userIds
-        final filteredProducts = data.content.where((product) => 
-          product.userId == null || product.userId != _userId
-        ).toList();
+        // Filter out user's own products AND sold products, handling null userIds and productStatus
+        final filteredProducts = data.content.where((product) { 
+          bool isNotSold = !(product.productStatus != null && product.productStatus!.toUpperCase() == 'SOLD');
+          bool isNotCurrentUserProduct = product.userId == null || product.userId != _userId;
+          return isNotSold && isNotCurrentUserProduct;
+        }).toList();
         
         if (mounted) {
           setState(() {

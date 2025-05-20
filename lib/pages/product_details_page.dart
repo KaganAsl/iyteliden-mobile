@@ -6,6 +6,7 @@ import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/pages/profile_page.dart';
 import 'package:iyteliden_mobile/pages/public_profile_page.dart';
 import 'package:iyteliden_mobile/pages/products_by_location_page.dart';
+import 'package:iyteliden_mobile/pages/products_by_category_page.dart';
 import 'package:iyteliden_mobile/services/favorite_service.dart';
 import 'package:iyteliden_mobile/services/image_service.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
@@ -145,6 +146,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           }
           final product = snapshot.data!;
           final imageCount = product.imageUrls.length;
+          bool isSold = product.productStatus != null && product.productStatus!.toUpperCase() == 'SOLD';
 
           return Scaffold(
             appBar: AppBar(
@@ -158,10 +160,14 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 _isOwner
                     ? PopupMenuButton<String>(
                         icon: const Icon(Icons.more_horiz),
-                        itemBuilder: (popupContext) => [
-                          const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                          const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                        ],
+                        itemBuilder: (popupContext) {
+                          List<PopupMenuEntry<String>> menuItems = [];
+                          if (!isSold) {
+                            menuItems.add(const PopupMenuItem(value: 'edit', child: Text('Edit')));
+                          }
+                          menuItems.add(const PopupMenuItem(value: 'delete', child: Text('Delete')));
+                          return menuItems;
+                        },
                         onSelected: (value) async {
                           if (value == 'edit') {
                             final result = await Navigator.push(
@@ -350,6 +356,19 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                     ),
                     const SizedBox(height: 8,),
+                    if (product.productStatus != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        child: Text(
+                          "Status: ${product.productStatus}",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isSold ? Colors.red : Colors.green,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
                     Text(
                       '\$${product.price.toStringAsFixed(2)}',
                       style: const TextStyle(
@@ -364,14 +383,21 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => ProfilePage(),
+                              builder: (_) => ProfilePage(
+                                focusedProductId: product.productId,
+                                focusedProductStatus: product.productStatus,
+                              ),
                             ),
                           );
                         } else {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => PublicProfilePage(userId: product.user.userId),
+                              builder: (_) => PublicProfilePage(
+                                userId: product.user.userId,
+                                focusedProductId: product.productId,
+                                focusedProductStatus: product.productStatus,
+                              ),
                             ),
                           );
                         }
@@ -386,6 +412,43 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    // Display Category
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0), // Added some padding
+                      child: Row( // Changed to Row for a more compact display
+                        children: [
+                          const Text(
+                            'Category: ',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () async {
+                              final prefs = await SharedPreferences.getInstance();
+                              final currentUserIdFromPrefs = prefs.getInt("user_id");
+
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ProductsByCategoryPage(
+                                    categoryId: product.category.categoryId,
+                                    categoryName: product.category.categoryName,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Chip(
+                              label: Text(product.category.categoryName),
+                              backgroundColor: Colors.teal[50], // Different color for distinction
+                              labelStyle: const TextStyle(color: Colors.black87),
+                              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     Text(
                       product.description,
                       style: const TextStyle(fontSize: 16),
