@@ -50,23 +50,33 @@ class _LandingPageState extends State<LandingPage> {
       } else if (result == 401) { // Unauthorized (token expired or invalid)
         await prefs.remove("auth_token");
         await prefs.remove("auth_expiry");
-        // Stay on LandingPage
+        if (mounted) {
+          setState(() {
+            _isCheckingToken = false;
+          });
+        }
       } else if (result == 403) { // Forbidden (user not verified, e.g., email not confirmed)
-        // Stay on LandingPage, user can attempt to login where this might be handled
+        if (mounted) {
+          setState(() {
+            _isCheckingToken = false;
+          });
+        }
       } else {
         // Other errors, potentially remove token and stay
         await prefs.remove("auth_token");
         await prefs.remove("auth_expiry");
-        // Stay on LandingPage
+        if (mounted) {
+          setState(() {
+            _isCheckingToken = false;
+          });
+        }
       }
     } catch (e) {
       // Exception during token check, stay on LandingPage
-      // Optionally, clear token if unsure of state
-      // final prefs = await SharedPreferences.getInstance();
-      // await prefs.remove("auth_token");
-      // await prefs.remove("auth_expiry");
       if (mounted) {
-        // You could show a subtle error or log, but for auto-login, failing silently to LandingPage is often preferred.
+        setState(() {
+          _isCheckingToken = false;
+        });
       }
     }
   }
