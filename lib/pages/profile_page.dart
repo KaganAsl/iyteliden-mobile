@@ -11,8 +11,14 @@ import 'package:iyteliden_mobile/widgets/simple_product_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfilePage extends StatefulWidget {
+  final int? focusedProductId;
+  final String? focusedProductStatus;
 
-  const ProfilePage({super.key});
+  const ProfilePage({
+    super.key,
+    this.focusedProductId,
+    this.focusedProductStatus,
+  });
 
   @override
   State<StatefulWidget> createState() => _ProfilePageState();
@@ -154,6 +160,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: ProductList(
                   jwt: _jwt!,
                   ownerId: user.userId,
+                  focusedProductId: widget.focusedProductId,
+                  focusedProductStatus: widget.focusedProductStatus,
                 ),
               ),
             ],
@@ -168,7 +176,16 @@ class _ProfilePageState extends State<ProfilePage> {
 class ProductList extends StatefulWidget {
   final String jwt;
   final int ownerId;
-  const ProductList({super.key, required this.jwt, required this.ownerId});
+  final int? focusedProductId;
+  final String? focusedProductStatus;
+
+  const ProductList({
+    super.key, 
+    required this.jwt, 
+    required this.ownerId,
+    this.focusedProductId,
+    this.focusedProductStatus,
+  });
 
   @override
   State<ProductList> createState() => _ProductListState();
@@ -220,6 +237,13 @@ class _ProductListState extends State<ProductList> {
         setState(() {
           _products.addAll(pageData.content);
           _totalPages = pageData.page.totalPages;
+
+          if (widget.focusedProductId != null && widget.focusedProductStatus != null) {
+            final index = _products.indexWhere((p) => p.productId == widget.focusedProductId);
+            if (index != -1) {
+              _products[index].productStatus = widget.focusedProductStatus;
+            }
+          }
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -247,17 +271,23 @@ class _ProductListState extends State<ProductList> {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 3/4,
+        childAspectRatio: 0.6,
       ),
-      itemCount: _products.length + (_isLoading && _currentPage + 1 < _totalPages ? 1 : 0),
+      itemCount: _products.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= _products.length) {
-          return const Center(child: CircularProgressIndicator(),);
+          return const Center(child: CircularProgressIndicator());
         }
         final product = _products[index];
+        String? displayStatus = product.productStatus;
+        if (widget.focusedProductId != null && product.productId == widget.focusedProductId && widget.focusedProductStatus != null) {
+          displayStatus = widget.focusedProductStatus;
+        }
+
         return SimpleSelfProductCard(
           jwt: widget.jwt,
           product: product,
+          productStatus: displayStatus,
           onTap: () async {
             final shouldRefresh = await Navigator.push(
               context,

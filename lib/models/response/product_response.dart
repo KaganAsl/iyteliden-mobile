@@ -8,12 +8,14 @@ class SimpleSelfProductResponse {
   final String? coverImage; // actually keyName for image service.
   final String productName;
   final double price;
+  String? productStatus;
 
   SimpleSelfProductResponse({
     required this.productId,
     this.coverImage,
     required this.productName,
     required this.price,
+    this.productStatus,
   });
 
   factory SimpleSelfProductResponse.fromJson(Map<String, dynamic> json) {
@@ -22,6 +24,7 @@ class SimpleSelfProductResponse {
       coverImage: json['coverImage'],
       productName: json['productName'],
       price: (json['price'] as num).toDouble(),
+      productStatus: json['productStatus'],
     );
   }
 }
@@ -33,6 +36,7 @@ class SimpleProductResponse {
   final double price;
   final int? userId;
   bool? isLiked;
+  final String? productStatus;
 
   SimpleProductResponse({
     required this.productId,
@@ -40,6 +44,8 @@ class SimpleProductResponse {
     required this.productName,
     required this.price,
     this.userId,
+    this.productStatus,
+    this.isLiked,
   });
 
   factory SimpleProductResponse.fromJson(Map<String, dynamic> json) {
@@ -49,6 +55,8 @@ class SimpleProductResponse {
       productName: json['productName'],
       price: (json['price'] as num).toDouble(),
       userId: json['userId'],
+      productStatus: json['productStatus'],
+      isLiked: json['isLiked'],
     );
   }
 }
@@ -100,6 +108,7 @@ class DetailedProductResponse {
   final double price;
   final List<Location> locations;
   bool? isLiked;
+  String? productStatus;
 
   DetailedProductResponse({
     required this.productId,
@@ -110,6 +119,7 @@ class DetailedProductResponse {
     required this.description,
     required this.price,
     required this.locations,
+    this.productStatus,
   });
 
   factory DetailedProductResponse.fromJson(Map<String, dynamic> json) {
@@ -124,6 +134,7 @@ class DetailedProductResponse {
       locations: (json['locations'] as List)
           .map((item) => Location.fromJson(item))
           .toList(),
+      productStatus: json['productStatus'],
     );
   }
 }
