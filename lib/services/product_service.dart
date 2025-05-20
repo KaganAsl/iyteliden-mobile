@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:iyteliden_mobile/models/response/error_response.dart';
+import 'package:iyteliden_mobile/models/response/location_response.dart';
 import 'package:iyteliden_mobile/models/response/page_info_response.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/utils/dotenv.dart';
@@ -486,6 +487,25 @@ class ProductService {
           timestamp: DateTime.now(),
         ),
       );
+    }
+  }
+
+  Future<(List<Location>?, ErrorResponse?)> getProductLocations(String jwt, int productId) async {
+    final response = await http.get(
+      Uri.parse('$url/products/locationsof/$productId'),
+      headers: <String, String> {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': jwt
+      }
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonList = jsonDecode(response.body);
+      final locations = jsonList.map((json) => Location.fromJson(json)).toList();
+      return (locations, null);
+    } else {
+      final json = jsonDecode(response.body);
+      final error = ErrorResponse.fromJson(json);
+      return (null, error);
     }
   }
 }

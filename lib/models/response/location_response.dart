@@ -13,4 +13,8 @@ class Location {
       locationName: json['locationName'],
     );
   }
+
+  bool isEqual(Location l) {
+    return locationId == l.locationId;
+  }
 }
