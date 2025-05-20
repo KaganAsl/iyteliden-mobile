@@ -448,24 +448,9 @@ class ProductService {
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
-        SimpleProductListResponse productList;
-        if (json is Map<String, dynamic> && json.containsKey('content') && json.containsKey('page')) {
-          productList = SimpleProductListResponse.fromJson(json);
-        } else if (json is List) {
-           List<SimpleProductResponse> products = json.map((item) => SimpleProductResponse.fromJson(item)).toList();
-           productList = SimpleProductListResponse(
-            content: products,
-            page: PageInfoResponse( 
-              size: products.length,
-              number: page,
-              totalElements: products.length, 
-              totalPages: 1, 
-            )
-           );
-        } else {
-            throw Exception("Unexpected response format for products by location");
-        }
+        SimpleProductListResponse productList = SimpleProductListResponse.fromJson(json);
 
+        // Check favorite status for each product
         for (var product in productList.content) {
           final (isFavorite, error) = await FavoriteService().checkFavorite(jwt, product.productId);
           if (error == null) {
@@ -479,14 +464,47 @@ class ProductService {
         return (null, error);
       }
     } catch (e) {
-      return (
-        null,
-        ErrorResponse(
-          status: 500,
-          message: "Error fetching products by location: ${e.toString()}",
-          timestamp: DateTime.now(),
-        ),
+      return (null, ErrorResponse(
+        status: 500, 
+        message: "Error fetching products by location: ${e.toString()}", 
+        timestamp: DateTime.now()
+      ));
+    }
+  }
+
+  Future<(SimpleProductListResponse?, ErrorResponse?)> getProductsByCategory(String jwt, int categoryId, int page) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$url/products/categoryId/$categoryId?page=$page'), // New endpoint for categories
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': jwt
+        },
       );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        SimpleProductListResponse productList = SimpleProductListResponse.fromJson(json);
+
+        // Check favorite status for each product
+        for (var product in productList.content) {
+          final (isFavorite, error) = await FavoriteService().checkFavorite(jwt, product.productId);
+          if (error == null) {
+            product.isLiked = isFavorite;
+          }
+        }
+        return (productList, null);
+      } else {
+        final json = jsonDecode(response.body);
+        final error = ErrorResponse.fromJson(json);
+        return (null, error);
+      }
+    } catch (e) {
+      return (null, ErrorResponse(
+        status: 500, 
+        message: "Error fetching products by category: ${e.toString()}", 
+        timestamp: DateTime.now()
+      ));
     }
   }
 

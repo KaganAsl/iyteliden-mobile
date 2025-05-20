@@ -20,6 +20,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   int _currentPage = 0;
   int _totalPages = 1;
   String? _jwt;
+  int? _userId;
   bool _isInitialized = false;
 
   @override
@@ -81,6 +82,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
       final prefs = await SharedPreferences.getInstance();
       setState(() {
         _jwt = prefs.getString("auth_token");
+        _userId = prefs.getInt("user_id");
       });
       
       if (_jwt == null) {
@@ -114,8 +116,18 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
         _showError(error?.message ?? "Failed to load products.");
         setState(() => _isLoading = false);
       } else {
+        List<SimpleProductResponse> newProducts = data.content;
+        List<SimpleProductResponse> productsToDisplay;
+
+        // Filter products
+        productsToDisplay = newProducts.where((product) {
+          bool isNotSold = !(product.productStatus != null && product.productStatus!.toUpperCase() == 'SOLD');
+          bool isNotCurrentUserProduct = _userId == null || product.userId == null || product.userId != _userId;
+          return isNotSold && isNotCurrentUserProduct;
+        }).toList();
+        
         setState(() {
-          _products.addAll(data.content);
+          _products.addAll(productsToDisplay);
           _totalPages = data.page.totalPages;
           _isLoading = false;
         });

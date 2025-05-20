@@ -11,6 +11,7 @@ class SimpleSelfProductCard extends StatelessWidget {
   final void Function()? onEdit;
   final void Function()? onDelete;
   final void Function()? onTap;
+  final String? productStatus;
 
   const SimpleSelfProductCard({
     super.key,
@@ -19,10 +20,13 @@ class SimpleSelfProductCard extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.onTap,
+    this.productStatus,
   });
 
   @override
   Widget build(BuildContext context) {
+    bool isSold = (productStatus ?? product.productStatus)?.toUpperCase() == 'SOLD';
+
     return GestureDetector(
       onTap: onTap,
       child: Card(
@@ -80,6 +84,18 @@ class SimpleSelfProductCard extends StatelessWidget {
                           color: Colors.black87
                         ),
                       ),
+                      if (productStatus != null || product.productStatus != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(
+                            productStatus ?? product.productStatus!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isSold ? Colors.redAccent : Colors.green,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -91,10 +107,14 @@ class SimpleSelfProductCard extends StatelessWidget {
               child: PopupMenuButton<String>(
                 icon: const Icon(Icons.more_horiz, size: 20),
                 padding: EdgeInsets.zero,
-                itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                  const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                ],
+                itemBuilder: (_) {
+                  List<PopupMenuEntry<String>> menuItems = [];
+                  if (!isSold) {
+                    menuItems.add(const PopupMenuItem(value: 'edit', child: Text('Edit')));
+                  }
+                  menuItems.add(const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.redAccent))));
+                  return menuItems;
+                },
                 onSelected: (value) {
                   if (value == 'edit') {
                     onEdit?.call();
@@ -120,6 +140,7 @@ class SimpleProductCard extends StatelessWidget {
   final VoidCallback? onFavorite;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final String? productStatus;
 
   const SimpleProductCard({
     super.key,
@@ -130,10 +151,13 @@ class SimpleProductCard extends StatelessWidget {
     this.onFavorite,
     this.onEdit,
     this.onDelete,
+    this.productStatus,
   });
 
   @override
   Widget build(BuildContext context) {
+    bool isSold = productStatus?.toUpperCase() == 'SOLD';
+
     return GestureDetector(
       onTap: onTap,
       child: Card(
@@ -191,6 +215,18 @@ class SimpleProductCard extends StatelessWidget {
                           color: Colors.black87
                         ),
                       ),
+                      if (productStatus != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(
+                            productStatus!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isSold ? Colors.redAccent : Colors.green,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

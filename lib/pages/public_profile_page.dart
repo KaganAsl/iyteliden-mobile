@@ -11,7 +11,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 class PublicProfilePage extends StatefulWidget {
   
   final int userId;
-  const PublicProfilePage({super.key, required this.userId});
+  final int? focusedProductId;
+  final String? focusedProductStatus;
+
+  const PublicProfilePage({
+    super.key, 
+    required this.userId,
+    this.focusedProductId,
+    this.focusedProductStatus,
+  });
 
   @override
   State<PublicProfilePage> createState() => _PublicProfilePageState();
@@ -88,7 +96,12 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
               ),
               const Divider(height: 1,),
               Expanded(
-                child: ProductList(jwt: _jwt!, ownerId: user.userId),
+                child: ProductList(
+                  jwt: _jwt!,
+                  ownerId: user.userId,
+                  focusedProductId: widget.focusedProductId,
+                  focusedProductStatus: widget.focusedProductStatus,
+                ),
               ),
             ],
           ),
@@ -102,7 +115,16 @@ class ProductList extends StatefulWidget {
   
   final String jwt;
   final int ownerId;
-  const ProductList({super.key, required this.jwt, required this.ownerId});
+  final int? focusedProductId;
+  final String? focusedProductStatus;
+
+  const ProductList({
+    super.key, 
+    required this.jwt, 
+    required this.ownerId,
+    this.focusedProductId,
+    this.focusedProductStatus,
+  });
 
   @override
   State<ProductList> createState() => _ProductListState();
@@ -139,6 +161,21 @@ class _ProductListState extends State<ProductList> {
         setState(() {
           _products.addAll(pageData.content);
           _totalPages = pageData.page.totalPages;
+
+          if (widget.focusedProductId != null && widget.focusedProductStatus != null) {
+            final index = _products.indexWhere((p) => p.productId == widget.focusedProductId);
+            if (index != -1) {
+              // This assumes SimpleProductResponse has a settable productStatus or can be reconstructed.
+              // If SimpleProductResponse is immutable and doesn't have productStatus, 
+              // we might need to adjust its definition or handle this differently.
+              // For now, let's assume we can create a new instance with the updated status or modify it.
+              // This part might need refinement based on SimpleProductResponse structure.
+              
+              // Ideal scenario: SimpleProductResponse has a productStatus field.
+              // If SimpleProductResponse does not have productStatus field, we might need to fetch it or reconsider the approach.
+              // For now, we'll try to update it. This will be passed to SimpleProductCard.
+            }
+          }
         });
         for (var p in _products) {
           final (like, error) = await FavoriteService().checkFavorite(widget.jwt, p.productId);
@@ -195,7 +232,7 @@ class _ProductListState extends State<ProductList> {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 3/4,
+        childAspectRatio: 0.6,
       ),
       itemCount: _products.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
@@ -203,9 +240,15 @@ class _ProductListState extends State<ProductList> {
           return const Center(child: CircularProgressIndicator(),);
         }
         final product = _products[index];
+        String? displayStatus = product.productStatus;
+        if (widget.focusedProductId != null && product.productId == widget.focusedProductId) {
+          displayStatus = widget.focusedProductStatus;
+        }
+
         return SimpleProductCard(
           jwt: widget.jwt,
           product: product,
+          productStatus: displayStatus,
           isFavorite: product.isLiked ?? true,
           onFavorite: () => _toggleFavorite(index),
           onTap: () async {
