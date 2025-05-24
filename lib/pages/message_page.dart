@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:iyteliden_mobile/models/request/bid_request.dart';
+import 'package:iyteliden_mobile/models/request/review_request.dart';
 import 'package:iyteliden_mobile/models/response/bid_response.dart';
 import 'package:iyteliden_mobile/models/response/conversation_response.dart';
 import 'package:iyteliden_mobile/models/response/error_response.dart';
@@ -13,6 +14,7 @@ import 'package:iyteliden_mobile/services/bid_service.dart';
 import 'package:iyteliden_mobile/services/image_service.dart';
 import 'package:iyteliden_mobile/services/message_service.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
+import 'package:iyteliden_mobile/services/review_service.dart';
 import 'package:iyteliden_mobile/utils/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -108,6 +110,7 @@ class _MessagePageState extends State<MessagePage> {
   final ImageService _imageService = ImageService();
   final ProductService _productService = ProductService();
   final BidService _bidService = BidService();
+  final ReviewService _reviewService = ReviewService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
@@ -524,7 +527,7 @@ class _MessagePageState extends State<MessagePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (bid.status == 'SOLD')
+                        if (bid.status == 'UNAVAILABLE')
                           Container(
                             padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                             decoration: BoxDecoration(
@@ -540,10 +543,10 @@ class _MessagePageState extends State<MessagePage> {
                             ),
                           ),
                         const SizedBox(height: 8),
-                        Text('Bidder: ${bid.bidderName}'),
-                        Text('Price: ₺${bid.price.toStringAsFixed(2)}'),
-                        Text('Date: ${_formatDateTime(bid.datetime)}'),
-                        Text('Status: ${bid.status}'),
+                        Text('Bidder: ${bid.bidderName}', style: widget.conversation.isMyProduct ? TextStyle(color: Colors.black):TextStyle(color: Colors.white),),
+                        Text('Price: ₺${bid.price.toStringAsFixed(2)}', style: widget.conversation.isMyProduct ? TextStyle(color: Colors.black):TextStyle(color: Colors.white),),
+                        Text('Date: ${_formatDateTime(bid.datetime)}', style: widget.conversation.isMyProduct ? TextStyle(color: Colors.black):TextStyle(color: Colors.white),),
+                        Text('Status: ${bid.status}', style: widget.conversation.isMyProduct ? TextStyle(color: Colors.black):TextStyle(color: Colors.white),),
                         const SizedBox(height: 8),
                         if (widget.conversation.isMyProduct)
                           if (bid.status == 'PENDING')
@@ -635,17 +638,124 @@ class _MessagePageState extends State<MessagePage> {
                                 ),
                               ],
                             )
-                          else if (bid.status == 'CONFIRMED')
+                          else if (bid.status == 'COMPLETED')
                             Row(
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
                                 TextButton(
                                   onPressed: () async {
-                                    
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        int selectedRating = 0;
+                                        String reviewContent = '';
+                                        final contentController = TextEditingController();
+                                        
+                                        return StatefulBuilder(
+                                          builder: (BuildContext context, StateSetter setDialogState) {
+                                            return AlertDialog(
+                                              backgroundColor: Colors.white,
+                                              title: Text('Write a Review', style: TextStyle(color: AppColors.text)),
+                                              content: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text('Rating:', style: TextStyle(fontWeight: FontWeight.bold)),
+                                                  SizedBox(height: 8),
+                                                  Row(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: List.generate(5, (index) {
+                                                      return IconButton(
+                                                        onPressed: () {
+                                                          setDialogState(() {
+                                                            selectedRating = index + 1;
+                                                          });
+                                                        },
+                                                        icon: Icon(
+                                                          index < selectedRating ? Icons.star : Icons.star_border,
+                                                          color: Colors.amber,
+                                                          size: 30,
+                                                        ),
+                                                      );
+                                                    }),
+                                                  ),
+                                                  SizedBox(height: 16),
+                                                  Text('Review:', style: TextStyle(fontWeight: FontWeight.bold)),
+                                                  SizedBox(height: 8),
+                                                  TextField(
+                                                    controller: contentController,
+                                                    maxLength: 1000,
+                                                    maxLines: 4,
+                                                    decoration: InputDecoration(
+                                                      hintText: 'Write your review here...',
+                                                      border: OutlineInputBorder(),
+                                                    ),
+                                                    onChanged: (value) {
+                                                      reviewContent = value;
+                                                    },
+                                                  ),
+                                                ],
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () {
+                                                    Navigator.of(context).pop();
+                                                  },
+                                                  child: Text('Cancel', style: TextStyle(color: AppColors.primary)),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () async {
+                                                    if (selectedRating == 0) {
+                                                      _showFeedbackSnackBar("Please select a rating", isError: true);
+                                                      return;
+                                                    }
+                                                    if (reviewContent.trim().isEmpty) {
+                                                      _showFeedbackSnackBar("Please write a review", isError: true);
+                                                      return;
+                                                    }
+                                                    
+                                                    final prefs = await SharedPreferences.getInstance();
+                                                    final jwt = prefs.getString('auth_token');
+                                                    if (jwt == null) {
+                                                      _showFeedbackSnackBar("Not Authenticated", isError: true);
+                                                      return;
+                                                    }
+                                                    
+                                                    final reviewRequest = ReviewRequest(
+                                                      recipientId: widget.conversation.recipientId,
+                                                      content: reviewContent.trim(),
+                                                      rating: selectedRating,
+                                                      productId: widget.conversation.productId,
+                                                      bidId: bid.bidId,
+                                                    );
+                                                    
+                                                    final (response, error) = await _reviewService.createReview(jwt, reviewRequest);
+                                                    if (error != null) {
+                                                      _showFeedbackSnackBar(error.message, isError: true);
+                                                    } else {
+                                                      _showFeedbackSnackBar("Review submitted successfully!");
+                                                      Navigator.of(context).pop();
+                                                    }
+                                                  },
+                                                  child: Text('Submit Review', style: TextStyle(color: AppColors.primary)),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                      },
+                                    );
                                   },
                                   child: const Text('Make Review')
                                 ),
                               ],
+                            )
+                          else if (bid.status == 'REVIEWED')
+                            const Text(
+                              'Product Reviewed.',
+                              style: TextStyle(
+                                color: Color.fromARGB(255, 162, 230, 153),
+                              ),
                             )
                       ],
                     ),
