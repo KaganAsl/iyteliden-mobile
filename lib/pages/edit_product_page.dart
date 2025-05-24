@@ -287,7 +287,7 @@ class _EditProductPageState extends State<EditProductPage> {
                     // Price
                     TextFormField(
                       controller: _priceController,
-                      decoration: const InputDecoration(labelText: 'Price'),
+                      decoration: const InputDecoration(labelText: 'Price', suffixText: '₺'),
                       keyboardType: TextInputType.number,
                       validator: (value) {
                         if (value == null || value.isEmpty) {

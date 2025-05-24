@@ -317,7 +317,7 @@ class _CreateProductPageState extends State<CreateProductPage> {
                       decoration: const InputDecoration(
                         labelText: 'Price',
                         border: OutlineInputBorder(),
-                        prefixText: '\$',
+                        suffixText: '₺',
                       ),
                       keyboardType: TextInputType.number,
                       validator: (value) {
