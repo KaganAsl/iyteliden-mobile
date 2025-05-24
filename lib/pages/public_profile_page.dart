@@ -158,6 +158,22 @@ class _ProductListState extends State<ProductList> {
     final (pageData, error) = await ProductService().getSimpleProducts(widget.jwt, widget.ownerId, _currentPage);
     if (mounted) {
       if (error == null && pageData != null) {
+        // Fetch favorite status for all products concurrently
+        List<bool?> favoriteStatuses = await Future.wait(
+          pageData.content.map((p) async {
+            final (isFavorite, favError) = await FavoriteService().checkFavorite(widget.jwt, p.productId);
+            if (favError == null) {
+              return isFavorite;
+            }
+            return null; // Or handle error appropriately
+          }).toList()
+        );
+
+        // Assign fetched favorite statuses to products
+        for (int i = 0; i < pageData.content.length; i++) {
+          pageData.content[i].isLiked = favoriteStatuses[i];
+        }
+        
         setState(() {
           _products.addAll(pageData.content);
           _totalPages = pageData.page.totalPages;
@@ -177,12 +193,6 @@ class _ProductListState extends State<ProductList> {
             }
           }
         });
-        for (var p in _products) {
-          final (like, error) = await FavoriteService().checkFavorite(widget.jwt, p.productId);
-          setState(() {
-            p.isLiked = like;
-          });
-        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error?.message ?? 'Failed to fetch products'), backgroundColor: Colors.redAccent));
       }
@@ -249,7 +259,7 @@ class _ProductListState extends State<ProductList> {
           jwt: widget.jwt,
           product: product,
           productStatus: displayStatus,
-          isFavorite: product.isLiked ?? true,
+          isFavorite: product.isLiked ?? false,
           onFavorite: () => _toggleFavorite(index),
           onTap: () async {
             final shouldRefresh = await Navigator.push(

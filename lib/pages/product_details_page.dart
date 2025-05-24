@@ -370,7 +370,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                     const SizedBox(height: 8),
                     Text(
-                      '\$${product.price.toStringAsFixed(2)}',
+                      '${product.price.toStringAsFixed(2)} ₺',
                       style: const TextStyle(
                         fontSize: 20,
                         color: Colors.green,
