@@ -77,7 +77,7 @@ class _MessageImageState extends State<MessageImage> with AutomaticKeepAliveClie
         child: SizedBox(
           width: 120,
           height: 120,
-          child: Center(child: CircularProgressIndicator()),
+          child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
         ),
       );
     }
@@ -298,7 +298,7 @@ class _MessagePageState extends State<MessagePage> {
         if (!mounted) return;
 
         if (bidError == null && bidResponse != null) {
-          final cachedBid = _bidCache[message.bidId!];
+          final cachedBid = _bidCache[message.bidId];
           // Check if the bid status or other relevant details have changed
           if (cachedBid == null ||
               cachedBid.status != bidResponse.status ||
@@ -506,7 +506,7 @@ class _MessagePageState extends State<MessagePage> {
                 }(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting && !_bidCache.containsKey(message.bidId)) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(child: CircularProgressIndicator(color: AppColors.primary));
                   }
 
                   if (snapshot.hasError || !snapshot.hasData || snapshot.data!.$1 == null) {
@@ -699,7 +699,7 @@ class _MessagePageState extends State<MessagePage> {
         children: [
           Expanded(
             child: isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator(color: AppColors.primary))
                 : error != null
                     ? Center(child: Text(error!, style: const TextStyle(color: Colors.red)))
                     : Stack(
@@ -711,10 +711,10 @@ class _MessagePageState extends State<MessagePage> {
                             itemCount: messages.length + (hasMorePages ? 1 : 0),
                             itemBuilder: (context, index) {
                               if (index == messages.length) {
-                                return const Center(
+                                return Center(
                                   child: Padding(
                                     padding: EdgeInsets.all(8.0),
-                                    child: CircularProgressIndicator(),
+                                    child: CircularProgressIndicator(color: AppColors.primary),
                                   ),
                                 );
                               }
