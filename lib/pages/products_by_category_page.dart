@@ -221,7 +221,7 @@ class _ProductsByCategoryPageState extends State<ProductsByCategoryPage> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(error.message ?? "Error updating favorite status."),
+            content: Text(error.message),
             backgroundColor: Colors.redAccent,
           ),
         );

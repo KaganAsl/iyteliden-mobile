@@ -56,7 +56,6 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
         }
       } catch (e) {
         // Silently handle errors to avoid disrupting the UI
-        print("Error refreshing favorite status: $e");
       }
     }
   }

@@ -31,7 +31,8 @@ class BidService {
     final response = await http.post(
       Uri.parse('$url/bids/accept/$bidId'),
       headers: <String, String> {
-        'Content-Type': 'application/json; charset=UTF-8'
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': jwt
       },
     );
     if (response.statusCode == 200) {
@@ -48,7 +49,8 @@ class BidService {
     final response = await http.post(
       Uri.parse('$url/bids/decline/$bidId'),
       headers: <String, String> {
-        'Content-Type': 'application/json; charset=UTF-8'
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': jwt
       },
     );
     if (response.statusCode == 200) {
@@ -65,7 +67,8 @@ class BidService {
     final response = await http.post(
       Uri.parse('$url/bids/confirm/$bidId'),
       headers: <String, String> {
-        'Content-Type': 'application/json; charset=UTF-8'
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': jwt
       },
     );
     if (response.statusCode == 200) {

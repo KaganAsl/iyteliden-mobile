@@ -3,10 +3,16 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:iyteliden_mobile/models/request/bid_request.dart';
+import 'package:iyteliden_mobile/models/response/bid_response.dart';
 import 'package:iyteliden_mobile/models/response/conversation_response.dart';
+import 'package:iyteliden_mobile/models/response/error_response.dart';
+import 'package:iyteliden_mobile/models/response/location_response.dart';
 import 'package:iyteliden_mobile/models/response/message_response.dart';
+import 'package:iyteliden_mobile/services/bid_service.dart';
 import 'package:iyteliden_mobile/services/image_service.dart';
 import 'package:iyteliden_mobile/services/message_service.dart';
+import 'package:iyteliden_mobile/services/product_service.dart';
 import 'package:iyteliden_mobile/utils/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -100,11 +106,18 @@ class _MessageImageState extends State<MessageImage> with AutomaticKeepAliveClie
 class _MessagePageState extends State<MessagePage> {
   final MessageService _messageService = MessageService();
   final ImageService _imageService = ImageService();
+  final ProductService _productService = ProductService();
+  final BidService _bidService = BidService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
   
   List<Message> messages = [];
+  List<Location> locations = [];
+  BidRequest? bidRequest;
+  int? bidId;
+  double? bidPrice;
+  Location? _selectedLocation;
   String? error;
   bool isLoading = true;
   bool isLoadingMore = false;
@@ -113,12 +126,14 @@ class _MessagePageState extends State<MessagePage> {
   Timer? _messageTimer;
   File? _selectedImage;
   final Map<String, String> _imageUrlCache = {};
+  final Map<int, BidResponse> _bidCache = {};
 
   @override
   void initState() {
     super.initState();
     _loadMessages();
     _startMessagePolling();
+    _loadBidData();
     _scrollController.addListener(_scrollListener);
   }
 
@@ -217,7 +232,7 @@ class _MessagePageState extends State<MessagePage> {
         }
         hasMorePages = currentPage < response.page.totalPages - 1;
         isLoading = false;
-      }); 
+      });
     }
   }
 
@@ -261,8 +276,44 @@ class _MessagePageState extends State<MessagePage> {
     _messageTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (mounted) {
         _loadNewMessages();
+        _refreshVisibleBids();
       }
     });
+  }
+
+  Future<void> _refreshVisibleBids() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jwt = prefs.getString('auth_token');
+    if (jwt == null || !mounted) return;
+
+    bool bidsUpdated = false;
+    // Iterate over a copy of messages to avoid issues if messages list is modified during async operations (though less likely here).
+    List<Message> currentMessages = List.from(messages);
+
+    for (var message in currentMessages) {
+      if (message.bidId != null) {
+        final (bidResponse, bidError) = await _bidService.getBid(jwt, message.bidId!);
+        
+        // Ensure component is still mounted after async operation
+        if (!mounted) return;
+
+        if (bidError == null && bidResponse != null) {
+          final cachedBid = _bidCache[message.bidId!];
+          // Check if the bid status or other relevant details have changed
+          if (cachedBid == null ||
+              cachedBid.status != bidResponse.status ||
+              cachedBid.price != bidResponse.price) { // You can add more fields to compare if needed
+            _bidCache[message.bidId!] = bidResponse;
+            bidsUpdated = true;
+          }
+        }
+        // Optionally, handle bidError if you want to show an error for a specific bid refresh failing
+      }
+    }
+
+    if (bidsUpdated && mounted) {
+      setState(() {});
+    }
   }
 
   Future<String?> _getImageUrl(String key) async {
@@ -328,7 +379,7 @@ class _MessagePageState extends State<MessagePage> {
   }
 
   Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty && _selectedImage == null) return;
+    if (_messageController.text.trim().isEmpty && _selectedImage == null && bidId == null) return;
 
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('auth_token');
@@ -343,8 +394,8 @@ class _MessagePageState extends State<MessagePage> {
 
     final Map<String, dynamic> messageData = {
       "productId": widget.conversation.productId,
-      "content": _selectedImage != null ? null : message,
-      "bidId": null,
+      "content": ((_selectedImage != null) || (bidId != null)) ? null : message,
+      "bidId": bidId,
       "recipientId": widget.conversation.isMyProduct ? widget.conversation.recipientId : null,
     };
 
@@ -368,6 +419,25 @@ class _MessagePageState extends State<MessagePage> {
     }
   }
 
+  Future<int> _placeBid() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jwt = prefs.getString('auth_token');
+    if (jwt == null) {
+      _showFeedbackSnackBar("Not Authenticated", isError: true);
+      return -1;
+    }
+    if (bidRequest != null) {
+      final (res, err) = await _bidService.placeBid(jwt, bidRequest!);
+      if (err != null) {
+        _showFeedbackSnackBar(err.message, isError: true);
+        return -1;
+      } else if (res != null) {
+        return res.bidId;
+      }
+    }
+    return -1;
+  }
+
   void _removeSelectedImage() {
     setState(() {
       _selectedImage = null;
@@ -384,9 +454,28 @@ class _MessagePageState extends State<MessagePage> {
     }
   }
 
+  void _loadBidData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jwt = prefs.getString('auth_token');
+    if (jwt == null) {
+      _showFeedbackSnackBar("Not Authenticated", isError: true);
+      return;
+    }
+    final (res, err) = await _productService.getProductLocations(jwt, widget.conversation.productId);
+    if (err != null) {
+      _showFeedbackSnackBar(err.message, isError: true);
+      return;
+    } else if (res != null) {
+      setState(() {
+        locations = res;
+      });
+    }
+  }
+
   Widget _buildMessageBubble(Message message) {
     final isMe = message.myMessage;
     final hasImage = message.imageUrl != null && message.imageUrl!.isNotEmpty;
+    final hasBid = message.bidId != null;
     
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -400,6 +489,169 @@ class _MessagePageState extends State<MessagePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (hasBid)
+              FutureBuilder<(BidResponse?, ErrorResponse?)>(
+                future: () async {
+                  if (_bidCache.containsKey(message.bidId)) {
+                    return (_bidCache[message.bidId], null);
+                  }
+                  final prefs = await SharedPreferences.getInstance();
+                  final jwt = prefs.getString('auth_token');
+                  if (jwt == null) return (null, null);
+                  final result = await _bidService.getBid(jwt, message.bidId!);
+                  if (result.$1 != null) {
+                    _bidCache[message.bidId!] = result.$1!;
+                  }
+                  return result;
+                }(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting && !_bidCache.containsKey(message.bidId)) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError || !snapshot.hasData || snapshot.data!.$1 == null) {
+                    return const Text('Error loading bid details');
+                  }
+
+                  final bid = snapshot.data!.$1!;
+                  
+                  return Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isMe ? Colors.white.withOpacity(0.2) : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (bid.status == 'SOLD')
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'Product is sold',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 8),
+                        Text('Bidder: ${bid.bidderName}'),
+                        Text('Price: ₺${bid.price.toStringAsFixed(2)}'),
+                        Text('Date: ${_formatDateTime(bid.datetime)}'),
+                        Text('Status: ${bid.status}'),
+                        const SizedBox(height: 8),
+                        if (widget.conversation.isMyProduct)
+                          if (bid.status == 'PENDING')
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () async {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final jwt = prefs.getString('auth_token');
+                                    if (jwt == null) return;
+                                    
+                                    final (response, error) = await _bidService.acceptBid(jwt, bid.bidId);
+                                    if (error != null) {
+                                      _showFeedbackSnackBar(error.message, isError: true);
+                                    } else if (response != null) {
+                                      setState(() {
+                                        _bidCache[bid.bidId] = response;
+                                      });
+                                    }
+                                  },
+                                  child: const Text('Accept'),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final jwt = prefs.getString('auth_token');
+                                    if (jwt == null) return;
+                                    
+                                    final (response, error) = await _bidService.declineBid(jwt, bid.bidId);
+                                    if (error != null) {
+                                      _showFeedbackSnackBar(error.message, isError: true);
+                                    } else if (response != null) {
+                                      setState(() {
+                                        _bidCache[bid.bidId] = response;
+                                      });
+                                    }
+                                  },
+                                  child: const Text('Decline'),
+                                ),
+                              ],
+                            ),
+                        if (!widget.conversation.isMyProduct)
+                          if (bid.status == 'PENDING')
+                            const Text(
+                              'Waiting for response...',
+                              style: TextStyle(
+                                fontStyle: FontStyle.italic,
+                                color: Colors.grey,
+                              ),
+                            )
+                          else if (bid.status == 'ACCEPTED')
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () async {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final jwt = prefs.getString('auth_token');
+                                    if (jwt == null) return;
+                                    
+                                    final (response, error) = await _bidService.confirmBid(jwt, bid.bidId);
+                                    if (error != null) {
+                                      _showFeedbackSnackBar(error.message, isError: true);
+                                    } else if (response != null) {
+                                      setState(() {
+                                        _bidCache[bid.bidId] = response;
+                                      });
+                                    }
+                                  },
+                                  child: const Text('Confirm'),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final jwt = prefs.getString('auth_token');
+                                    if (jwt == null) return;
+                                    
+                                    final (response, error) = await _bidService.declineBid(jwt, bid.bidId);
+                                    if (error != null) {
+                                      _showFeedbackSnackBar(error.message, isError: true);
+                                    } else if (response != null) {
+                                      setState(() {
+                                        _bidCache[bid.bidId] = response;
+                                      });
+                                    }
+                                  },
+                                  child: const Text('Deny'),
+                                ),
+                              ],
+                            )
+                          else if (bid.status == 'CONFIRMED')
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                TextButton(
+                                  onPressed: () async {
+                                    
+                                  },
+                                  child: const Text('Make Review')
+                                ),
+                              ],
+                            )
+                      ],
+                    ),
+                  );
+                },
+              ),
             if (hasImage)
               MessageImage(
                 imageKey: message.imageUrl!,
@@ -429,6 +681,10 @@ class _MessagePageState extends State<MessagePage> {
 
   String _formatMessageTime(DateTime time) {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -507,7 +763,7 @@ class _MessagePageState extends State<MessagePage> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
+                  color: Colors.grey.withValues(alpha: 0.2),
                   spreadRadius: 1,
                   blurRadius: 3,
                   offset: const Offset(0, -1),
@@ -520,6 +776,110 @@ class _MessagePageState extends State<MessagePage> {
                   IconButton(
                     icon: const Icon(Icons.image, color: AppColors.primary),
                     onPressed: _selectedImage == null ? _pickImage : null,
+                  ),
+                  widget.conversation.isMyProduct ? const SizedBox() :
+                  IconButton(
+                    icon: const Icon(Icons.gavel, color: AppColors.primary,),
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return StatefulBuilder(
+                            builder: (BuildContext context, StateSetter setDialogState) {
+                              return AlertDialog(
+                                backgroundColor: Colors.white,
+                                titleTextStyle: TextStyle(
+                                  color: AppColors.text,
+                                  fontSize: 16,
+                                ),
+                                title: const Text('Make an Offer'),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    TextField(
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Enter your offer amount',
+                                        prefixText: '₺',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          bidPrice = double.tryParse(value);
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: locations.map((l) {
+                                        final isSelected = _selectedLocation == null ? false : _selectedLocation!.isEqual(l);
+                                        return FilterChip(
+                                          label: Text(l.locationName),
+                                          selected: isSelected,
+                                          onSelected: (selected) {
+                                            setDialogState(() {
+                                              if (selected) {
+                                                _selectedLocation = l;
+                                              } else {
+                                                _selectedLocation = null;
+                                              }
+                                            });
+                                          },
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                    },
+                                    style: TextButton.styleFrom(foregroundColor: Colors.black12),
+                                    child: const Text('Cancel', style: TextStyle(color: AppColors.primary),),
+                                  ),
+                                  TextButton(
+                                    onPressed: () async {
+                                      if (_selectedLocation == null) {
+                                        _showFeedbackSnackBar("Choose one location", isError: true);
+                                      } else if (bidPrice == null) {
+                                        _showFeedbackSnackBar("Specify bid", isError: true);
+                                      } else if (bidPrice! < 0) {
+                                        _showFeedbackSnackBar("At least 0", isError: true);
+                                      } else {
+                                        BidRequest req = BidRequest(productId: widget.conversation.productId, price: bidPrice!, locationId: _selectedLocation!.locationId);
+                                        bidRequest = req;
+                                        final res = await _placeBid();
+                                        if (res == -1) {
+                                          _showFeedbackSnackBar("Bid couldn't send.", isError: true);
+                                        } else {
+                                          setState(() {
+                                            bidId = res;
+                                          });
+                                          await _sendMessage();
+                                          setState(() {
+                                            bidId = null;
+                                            bidRequest = null;
+                                            bidId = null;
+                                            bidPrice = null;
+                                            _selectedLocation = null;
+                                          });
+                                          Navigator.of(context).pop();
+                                        }
+                                      }
+                                    },
+                                    style: TextButton.styleFrom(foregroundColor: Colors.black12),
+                                    child: const Text('Make Offer', style: TextStyle(color: AppColors.primary),),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
                   ),
                   Expanded(
                     child: TextField(
