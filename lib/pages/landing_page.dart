@@ -84,9 +84,10 @@ class _LandingPageState extends State<LandingPage> {
   @override
   Widget build(BuildContext context) {
     if (_isCheckingToken) {
-      return const Scaffold(
+      return Scaffold(
+        backgroundColor: AppColors.background,
         body: Center(
-          child: CircularProgressIndicator(),
+          child: CircularProgressIndicator(color: AppColors.primary),
         ),
       );
     }
@@ -120,7 +121,7 @@ class _LandingPageState extends State<LandingPage> {
                 height: 50,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: const Color(0xFF9B0A1A),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -148,7 +149,7 @@ class _LandingPageState extends State<LandingPage> {
                 height: 50,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondary, // Or another distinct color
+                    backgroundColor: const Color(0xFF414143), // Or another distinct color
                      shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -164,7 +165,7 @@ class _LandingPageState extends State<LandingPage> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.background,
+                      color: Color(0xFFFFFFFF),
                     ),
                   ),
                 ),

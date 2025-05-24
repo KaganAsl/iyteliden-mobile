@@ -7,6 +7,7 @@ import 'package:iyteliden_mobile/services/product_service.dart';
 import 'package:iyteliden_mobile/services/user_service.dart';
 import 'package:iyteliden_mobile/widgets/simple_product_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:iyteliden_mobile/utils/app_colors.dart';
 
 class PublicProfilePage extends StatefulWidget {
   
@@ -75,7 +76,7 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
       future: _userFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(),);
+          return Center(child: CircularProgressIndicator(color: AppColors.primary));
         }
         if (snapshot.hasError) {
           return const Center(child: Text("Failed to load user."),);
@@ -91,10 +92,50 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text("Username: ${user.userName}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: Colors.grey[300],
+                      child: Icon(
+                        Icons.person,
+                        size: 40,
+                        color: Colors.grey[600],
+                      ),
+                      // TODO: Replace with NetworkImage(user.profilePictureUrl) if available in UserResponse
+                    ),
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user.userName, 
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "User ID: ${user.userId}", 
+                          style: TextStyle(fontSize: 14, color: Colors.grey[600])
+                        ),
+                      ],
+                    )
+                  ],
+                ),
               ),
-              const Divider(height: 1,),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              Padding(
+                padding: const EdgeInsets.only(left: 16.0, top: 12.0, bottom: 8.0),
+                child: Text(
+                  "${user.userName}'s Products",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).textTheme.titleLarge?.color ?? AppColors.text, 
+                  ),
+                ),
+              ),
               Expanded(
                 child: ProductList(
                   jwt: _jwt!,
@@ -201,27 +242,34 @@ class _ProductListState extends State<ProductList> {
     final product = _products[index];
     final liked = product.isLiked ?? false;
 
-    setState(() {
-      product.isLiked = !liked;
-    });
+    // Optimistically update UI
+    if (mounted) {
+      setState(() {
+        product.isLiked = !liked;
+      });
+    }
 
     final service = FavoriteService();
     final error = liked
         ? await service.unfavorite(widget.jwt, product.productId)
         : await service.favorite(widget.jwt, product.productId);
 
-    if (error != null) {
+    // Revert if error or if widget is no longer mounted
+    if (error != null && mounted) {
       setState(() {
-        product.isLiked = liked; // revert
+        product.isLiked = liked;
       });
       _showError(error.message);
+    } else if (error == null && mounted) {
+      // Optionally show success feedback for the user
+      // _showSuccessMessage(liked ? "Removed from favorites" : "Added to favorites");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_products.isEmpty && _isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
     if (_products.isEmpty) {
       return const Center(child: Text("No products to display."));
@@ -238,7 +286,7 @@ class _ProductListState extends State<ProductList> {
       itemCount: _products.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= _products.length) {
-          return const Center(child: CircularProgressIndicator(),);
+          return Center(child: CircularProgressIndicator(color: AppColors.primary));
         }
         final product = _products[index];
         String? displayStatus = product.productStatus;

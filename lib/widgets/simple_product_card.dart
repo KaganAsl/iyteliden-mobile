@@ -3,6 +3,7 @@ import 'package:iyteliden_mobile/models/response/error_response.dart';
 import 'package:iyteliden_mobile/models/response/image_response.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/services/image_service.dart';
+import 'package:iyteliden_mobile/utils/app_colors.dart';
 
 class SimpleSelfProductCard extends StatelessWidget {
 
@@ -156,7 +157,9 @@ class SimpleProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    bool isSold = productStatus?.toUpperCase() == 'SOLD';
+    // Prioritize the productStatus prop, but fall back to product.productStatus
+    final String? currentProductStatus = productStatus ?? product.productStatus;
+    bool isSold = currentProductStatus?.toUpperCase() == 'SOLD';
 
     return GestureDetector(
       onTap: onTap,
@@ -178,7 +181,7 @@ class SimpleProductCard extends StatelessWidget {
                       future: ImageService().getImage(jwt, product.coverImage!),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator(),);
+                          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
                         }
                         final img = snapshot.data?.$1?.url;
                         if (img == null) {
@@ -215,11 +218,11 @@ class SimpleProductCard extends StatelessWidget {
                           color: Colors.black87
                         ),
                       ),
-                      if (productStatus != null)
+                      if (currentProductStatus != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 4.0),
                           child: Text(
-                            productStatus!,
+                            currentProductStatus!,
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -232,20 +235,19 @@ class SimpleProductCard extends StatelessWidget {
                 ),
               ],
             ),
-            Positioned(
-              top: 4,
-              right: 4,
-              child: IconButton(
-                icon: Icon(
-                  isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: isFavorite ? Colors.red : Colors.grey[600],
-                  size: 20,
+            // Conditionally display the favorite button if not sold
+            if (!isSold)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: Icon(
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: isFavorite ? AppColors.primary : AppColors.secondary,
+                  ),
+                  onPressed: onFavorite,
                 ),
-                padding: EdgeInsets.zero,
-                onPressed: onFavorite,
-                tooltip: isFavorite ? 'Remove from favorites' : 'Add to favorites',
               ),
-            ),
           ],
         ),
       ),
