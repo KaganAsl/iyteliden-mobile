@@ -8,6 +8,7 @@ import 'package:iyteliden_mobile/services/category_service.dart';
 import 'package:iyteliden_mobile/services/location_service.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:iyteliden_mobile/utils/app_colors.dart';
 
 class CreateProductPage extends StatefulWidget {
   const CreateProductPage({super.key});
@@ -215,12 +216,14 @@ class _CreateProductPageState extends State<CreateProductPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Product'),
+        title: const Text('Create New Product'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.background,
       ),
       body: _isLoading
-        ? const Center(child: CircularProgressIndicator())
+        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
         : _errorMessage != null
-            ? Center(child: Text(_errorMessage!))
+            ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent)))
             : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Form(

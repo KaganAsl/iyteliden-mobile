@@ -7,6 +7,7 @@ import 'package:iyteliden_mobile/services/search_history_service.dart';
 import 'package:iyteliden_mobile/services/user_service.dart';
 import 'package:iyteliden_mobile/widgets/simple_product_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:iyteliden_mobile/utils/app_colors.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -111,45 +112,51 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Future<void> _searchProducts() async {
-    if (_jwt == null || _currentQuery.isEmpty || !mounted) return;
+    if (_jwt == null || _currentQuery.isEmpty || !mounted) {
+      if (mounted) {
+        setState(() { _isLoading = false; });
+      }
+      return;
+    }
 
-    try {
-      setState(() {
-        _isLoading = true;
-        _showHistory = false;
-      });
-      
-      // Add to search history
+    // Products are cleared in onSubmitted for new searches (_currentPage == 0)
+    setState(() {
+      _isLoading = true;
+      _showHistory = false; // Ensure history is hidden during search
+    });
+    
+    // Add to search history only for new searches (page 0)
+    if (_currentPage == 0) {
       await _searchHistoryService.addToSearchHistory(_currentQuery);
       await _loadSearchHistory();
-      
-      final (data, error) = await ProductService().searchProducts(_jwt!, _currentQuery, _currentPage);
-      
-      if (!mounted) return;
-      
-      if (error != null || data == null) {
-        _showError(error?.message ?? "Failed to search products.");
-        setState(() => _isLoading = false);
-      } else {
-        // Filter out user's own products AND sold products, handling null userIds and productStatus
-        final filteredProducts = data.content.where((product) { 
-          bool isNotSold = !(product.productStatus != null && product.productStatus!.toUpperCase() == 'SOLD');
-          bool isNotCurrentUserProduct = product.userId == null || product.userId != _userId;
-          return isNotSold && isNotCurrentUserProduct;
-        }).toList();
-        
-        if (mounted) {
-          setState(() {
-            _products.addAll(filteredProducts);
-            _totalPages = data.page.totalPages;
-            _isLoading = false;
-          });
-        }
-      }
-    } catch (e) {
+    }
+    
+    final (data, error) = await ProductService().searchProducts(_jwt!, _currentQuery, _currentPage);
+    
+    if (!mounted) return;
+    
+    if (error != null || data == null) {
+      _showError(error?.message ?? "Failed to search products.");
+      // If it was a new search (page 0) that failed, products list remains empty.
+      // If pagination failed, existing products are kept.
       if (mounted) {
         setState(() => _isLoading = false);
-        _showError("Error searching products: ${e.toString()}");
+      }
+    } else {
+      // Filter out user's own products AND sold products, handling null userIds and productStatus
+      final filteredProducts = data.content.where((product) { 
+        bool isNotSold = !(product.productStatus != null && product.productStatus!.toUpperCase() == 'SOLD');
+        bool isNotCurrentUserProduct = product.userId == null || product.userId != _userId;
+        return isNotSold && isNotCurrentUserProduct;
+      }).toList();
+      
+      if (mounted) {
+        setState(() {
+          // if (_currentPage == 0) { _products.clear(); } // Already cleared in onSubmitted for new search
+          _products.addAll(filteredProducts);
+          _totalPages = data.page.totalPages;
+          _isLoading = false;
+        });
       }
     }
   }
@@ -252,6 +259,7 @@ class _SearchPageState extends State<SearchPage> {
                     _currentQuery = query;
                     _products.clear();
                     _currentPage = 0;
+                    _showHistory = false;
                   });
                   _searchProducts();
                 },
@@ -265,6 +273,80 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    final String liveSearchText = _searchController.text;
+    Widget bodyContent;
+
+    if (_showHistory && liveSearchText.isEmpty) {
+      bodyContent = _buildSearchHistory();
+    } else if (_isLoading && _products.isEmpty) { 
+      // Show full page loader only if loading initial results and no products are yet visible
+      bodyContent = const Center(child: CircularProgressIndicator(color: AppColors.primary));
+    } else if (_products.isNotEmpty) {
+      bodyContent = GridView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(12),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 3/4,
+        ),
+        itemCount: _products.length + (_isLoading ? 1 : 0), // _isLoading for pagination loader at the end
+        itemBuilder: (context, index) {
+          if (index >= _products.length) {
+            // This is the pagination loader item
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          }
+          final product = _products[index];
+          return SimpleProductCard(
+            jwt: _jwt!,
+            product: product,
+            isFavorite: product.isLiked ?? false,
+            onFavorite: () => _toggleFavorite(index),
+            onTap: () async {
+              final shouldRefresh = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProductDetailPage(productId: product.productId),
+                ),
+              );
+              if (shouldRefresh == true && mounted) {
+                _favoritesChanged = true;
+                final (isFavorite, error) = await FavoriteService().checkFavorite(_jwt!, product.productId);
+                if (error == null && mounted) {
+                  setState(() {
+                    product.isLiked = isFavorite;
+                  });
+                }
+              }
+            },
+          );
+        },
+      );
+    } else { // No products to display, and not in the initial full-page loading state
+      String message;
+      if (_currentQuery.isNotEmpty && !_isLoading) {
+        // A search for _currentQuery (submitted query) was completed, and it yielded no products
+        message = "No products found for '$_currentQuery'";
+      } else if (liveSearchText.isEmpty) {
+        // No submitted query, and the search text field is also empty
+        message = "Enter a search term to find products";
+      } else {
+        // Text is in the search field, but it hasn't been submitted yet (or submitted query was cleared)
+        message = "Press Enter to search for '$liveSearchText'";
+      }
+      bodyContent = Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[600], fontSize: 16),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -282,22 +364,53 @@ class _SearchPageState extends State<SearchPage> {
               prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              // Add a clear button if desired (optional)
+              // suffixIcon: _searchController.text.isNotEmpty
+              //     ? IconButton(
+              //         icon: Icon(Icons.clear, color: Colors.grey[600]),
+              //         onPressed: () {
+              //           _searchController.clear();
+              //           // Manually trigger onChanged logic
+              //           setState(() {
+              //             _showHistory = true;
+              //             _products.clear();
+              //             _currentQuery = '';
+              //           });
+              //         },
+              //       )
+              //     : null,
             ),
             onSubmitted: (value) {
+              final queryToSubmit = value.trim();
+              if (queryToSubmit.isEmpty) {
+                setState(() {
+                  _searchController.text = ''; // Ensure controller is also cleared if user submits empty space
+                  _showHistory = true;
+                  _products.clear();
+                  _currentQuery = '';
+                });
+                return;
+              }
               setState(() {
-                _currentQuery = value;
+                _currentQuery = queryToSubmit; // Set the query to be searched
                 _products.clear();
                 _currentPage = 0;
+                _showHistory = false;
               });
               _searchProducts();
             },
-            onChanged: (value) {
+            onChanged: (value) { // value is the current text in the field
               setState(() {
-                _currentQuery = value;
+                // _currentQuery (submitted query) is NOT updated here.
                 if (value.isEmpty) {
                   _showHistory = true;
                   _products.clear();
+                  _currentQuery = ''; // Clear submitted query if text field becomes empty
+                } else {
+                  _showHistory = false; // Hide history as soon as user types
                 }
+                // This setState will trigger a rebuild, allowing the bodyContent logic
+                // to display the correct message based on liveSearchText and _currentQuery.
               });
             },
           ),
@@ -310,62 +423,7 @@ class _SearchPageState extends State<SearchPage> {
           },
         ),
       ),
-      body: _showHistory && _currentQuery.isEmpty
-          ? _buildSearchHistory()
-          : _products.isEmpty && !_isLoading
-              ? Center(
-                  child: Text(
-                    _currentQuery.isEmpty
-                        ? "Enter a search term to find products"
-                        : _isLoading 
-                            ? "Searching..."
-                            : "No products found for '$_currentQuery'",
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                )
-              : GridView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 3/4,
-                  ),
-                  itemCount: _products.length + (_isLoading ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index >= _products.length) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final product = _products[index];
-                    return SimpleProductCard(
-                      jwt: _jwt!,
-                      product: product,
-                      isFavorite: product.isLiked ?? false,
-                      onFavorite: () => _toggleFavorite(index),
-                      onTap: () async {
-                        final shouldRefresh = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ProductDetailPage(productId: product.productId),
-                          ),
-                        );
-                        if (shouldRefresh == true && mounted) {
-                          // Mark that favorites have changed if the product details page says so
-                          _favoritesChanged = true;
-                          
-                          // Check the current favorite status for this product
-                          final (isFavorite, error) = await FavoriteService().checkFavorite(_jwt!, product.productId);
-                          if (error == null && mounted) {
-                            setState(() {
-                              product.isLiked = isFavorite;
-                            });
-                          }
-                        }
-                      },
-                    );
-                  },
-                ),
+      body: bodyContent,
     );
   }
 }

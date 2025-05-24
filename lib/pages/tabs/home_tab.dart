@@ -5,6 +5,7 @@ import 'package:iyteliden_mobile/services/favorite_service.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
 import 'package:iyteliden_mobile/widgets/simple_product_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:iyteliden_mobile/utils/app_colors.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -170,7 +171,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   Widget build(BuildContext context) {
     super.build(context);
     if (_products.isEmpty && _isLoading) {
-      return const Center(child: CircularProgressIndicator(),);
+      return Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
     if (_products.isEmpty) {
       return const Center(child: Text("No products available."),);
@@ -187,7 +188,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
       itemCount: _products.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= _products.length) {
-          return const Center(child: CircularProgressIndicator(),);
+          return Center(child: CircularProgressIndicator(color: AppColors.primary));
         }
         final product = _products[index];
         return SimpleProductCard(

@@ -10,6 +10,7 @@ import 'package:iyteliden_mobile/services/favorite_service.dart';
 import 'package:iyteliden_mobile/services/image_service.dart';
 import 'package:iyteliden_mobile/services/message_service.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
+import 'package:iyteliden_mobile/utils/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iyteliden_mobile/pages/edit_product_page.dart';
 
@@ -31,6 +32,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   int _currentImageIndex = 0;
   bool _isDeleting = false;
   bool _favoritesChanged = false;
+
+  // Define colors for easy use
+  static const Color primaryRed = Color(0xFF9B0A1A);
+  static const Color primaryDarkGray = Color(0xFF414143);
+  static const Color primaryWhite = Color(0xFFFFFFFF);
 
   @override
   void initState() {
@@ -72,8 +78,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   void _showFeedbackSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
     final snackBar = SnackBar(
-      content: Text(message),
-      backgroundColor: isError ? Colors.redAccent : Colors.green,
+      content: Text(message, style: const TextStyle(color: primaryWhite)),
+      backgroundColor: isError ? primaryRed : Colors.green, // Keeping green for success for now
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
@@ -81,7 +87,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       margin: const EdgeInsets.all(10),
       action: SnackBarAction(
         label: "OK",
-        textColor: Colors.white,
+        textColor: primaryWhite,
         onPressed: () {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
         },
@@ -120,46 +126,67 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         future: _productDetails,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            return const Scaffold(backgroundColor: primaryWhite, body: Center(child: CircularProgressIndicator(color: primaryRed)));
           } else if (snapshot.hasError) {
             // ... (your existing error handling for product not found, etc.)
             if (snapshot.error.toString().contains('404') ||
                 snapshot.error.toString().contains('not found') ||
                 snapshot.error.toString().contains('Failed to load product details.')) { // Broader check
               return Scaffold(
+                backgroundColor: primaryWhite,
                 appBar: AppBar(
-                  backgroundColor: Colors.white,
+                  backgroundColor: primaryWhite,
                   elevation: 0,
                   leading: IconButton(
-                    icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(Icons.arrow_back_ios_new, color: primaryDarkGray),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
                 body: const Center(
-                  child: Text('This product has been deleted or is no longer available.'),
+                  child: Text(
+                    'This product has been deleted or is no longer available.',
+                    style: TextStyle(color: primaryDarkGray),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               );
             }
-            return Scaffold(body: Center(child: Text('Error loading product: ${snapshot.error}')));
+            return Scaffold(
+              backgroundColor: primaryWhite,
+              body: Center(child: Text('Error loading product: ${snapshot.error}', style: const TextStyle(color: primaryDarkGray)))
+            );
           } else if (!snapshot.hasData) {
-            return const Scaffold(body: Center(child: Text('No product details available.')));
+            return const Scaffold(
+              backgroundColor: primaryWhite,
+              body: Center(child: Text('No product details available.', style: TextStyle(color: primaryDarkGray)))
+            );
           }
           final product = snapshot.data!;
           final imageCount = product.imageUrls.length;
           bool isSold = product.productStatus != null && product.productStatus!.toUpperCase() == 'SOLD';
 
           return Scaffold(
+            backgroundColor: primaryWhite,
             appBar: AppBar(
-              backgroundColor: Colors.white,
+              title: Text(
+                product.productName,
+                style: const TextStyle(
+                  color: primaryDarkGray,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+              backgroundColor: primaryWhite,
               elevation: 0,
                leading: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new),
+                icon: const Icon(Icons.arrow_back_ios_new, color: primaryDarkGray),
                 onPressed: () => Navigator.of(context).pop(_favoritesChanged),
               ),
               actions: [
                 _isOwner
                     ? PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_horiz),
+                        icon: const Icon(Icons.more_horiz, color: primaryDarkGray),
                         itemBuilder: (popupContext) {
                           List<PopupMenuEntry<String>> menuItems = [];
                           if (!isSold) {
@@ -244,8 +271,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                         }
                                       },
                                       child: _isDeleting
-                                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                                          : const Text('Delete', style: TextStyle(color: Colors.red)),
+                                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: primaryRed))
+                                          : const Text('Delete', style: TextStyle(color: primaryRed)),
                                     ),
                                   ],
                                 );
@@ -254,12 +281,14 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           }
                         },
                       )
-                    : IconButton(
-                        icon: _isLiked ? const Icon(Icons.favorite, color: Colors.red) : const Icon(Icons.favorite_border),
-                        onPressed: () {
-                          _toggleFavoriteForProduct(product);
-                        },
-                      ),
+                    : !_isOwner && !isSold 
+                        ? IconButton(
+                            icon: _isLiked ? const Icon(Icons.favorite, color: primaryRed) : const Icon(Icons.favorite_border, color: primaryDarkGray),
+                            onPressed: () {
+                              _toggleFavoriteForProduct(product);
+                            },
+                          )
+                        : const SizedBox.shrink(),
               ],
             ),
             body: SingleChildScrollView(
@@ -277,7 +306,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               future: ImageService().getImage(_jwt!, product.imageUrls[_currentImageIndex]),
                               builder: (context, imgSnapshot) {
                                 if (imgSnapshot.connectionState == ConnectionState.waiting) {
-                                  return const Center(child: CircularProgressIndicator(),);
+                                  return const Center(child: CircularProgressIndicator(color: primaryRed),);
                                 }
                                 if (imgSnapshot.hasError || imgSnapshot.data?.$1?.url == null) {
                                   return Container(
@@ -287,11 +316,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                     child: Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        const Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey),
+                                        const Icon(Icons.broken_image_outlined, size: 48, color: primaryDarkGray),
                                         const SizedBox(height: 8),
                                         Text(
                                           'Image not available',
-                                          style: TextStyle(color: Colors.grey[600]),
+                                          style: TextStyle(color: primaryDarkGray),
                                         ),
                                       ],
                                     ),
@@ -308,11 +337,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                       child: Column(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          const Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey),
+                                          const Icon(Icons.broken_image_outlined, size: 48, color: primaryDarkGray),
                                           const SizedBox(height: 8),
                                           Text(
                                             'Failed to load image',
-                                            style: TextStyle(color: Colors.grey[600]),
+                                            style: TextStyle(color: primaryDarkGray),
                                           ),
                                         ],
                                       ),
@@ -327,15 +356,15 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               IconButton(
-                                icon: Icon(Icons.arrow_back),
+                                icon: Icon(Icons.arrow_back, color: _currentImageIndex > 0 ? primaryDarkGray : Colors.grey[400]),
                                 onPressed: _currentImageIndex > 0
                                   ? () => setState(() {
                                     _currentImageIndex--;
                                   }) : null,
                               ),
-                              Text('${_currentImageIndex + 1} / $imageCount'),
+                              Text('${_currentImageIndex + 1} / $imageCount', style: const TextStyle(color: primaryDarkGray)),
                               IconButton(
-                                icon: const Icon(Icons.arrow_forward),
+                                icon: Icon(Icons.arrow_forward, color: _currentImageIndex < imageCount - 1 ? primaryDarkGray : Colors.grey[400]),
                                 onPressed: _currentImageIndex < imageCount - 1
                                     ? () => setState(() {
                                           _currentImageIndex++;
@@ -346,39 +375,128 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           ),
                         ],
                       )
-                    else const Icon(Icons.image_not_supported_outlined, size: 48),
+                    else const Icon(Icons.image_not_supported_outlined, size: 48, color: primaryDarkGray),
                     const SizedBox(height: 16,),
-                    Text(
-                      product.productName,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8,),
-                    if (product.productStatus != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Text(
-                          "Status: ${product.productStatus}",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isSold ? Colors.red : Colors.green,
-                          ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${product.price.toStringAsFixed(2)} ₺',
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.secondary,
+                              ),
+                            ),
+                            if (product.productStatus != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
+                                child: Text(
+                                  "Status: ${product.productStatus}",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSold ? primaryRed : Colors.green,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                      ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${product.price.toStringAsFixed(2)} ₺',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        color: Colors.green,
-                      ),
+                        if (!_isOwner && !isSold)
+                          ElevatedButton(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  final TextEditingController messageController = TextEditingController();
+                                  return AlertDialog(
+                                    backgroundColor: primaryWhite,
+                                    title: const Text('Send Message', style: TextStyle(color: primaryDarkGray)),
+                                    content: Card(
+                                      color: primaryWhite,
+                                      elevation: 0,
+                                      child: TextField(
+                                        controller: messageController,
+                                        style: const TextStyle(color: primaryDarkGray),
+                                        decoration: InputDecoration(
+                                          hintText: 'Type your message...',
+                                          hintStyle: TextStyle(color: primaryDarkGray.withOpacity(0.6)),
+                                          border: const OutlineInputBorder(),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderSide: BorderSide(color: primaryDarkGray.withOpacity(0.5)),
+                                          ),
+                                          focusedBorder: const OutlineInputBorder(
+                                            borderSide: BorderSide(color: primaryRed),
+                                          ),
+                                        ),
+                                        maxLines: 3,
+                                        autofocus: true,
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(),
+                                        child: const Text('Cancel', style: TextStyle(color: primaryDarkGray)),
+                                      ),
+                                      TextButton(
+                                        onPressed: () async {
+                                          if (messageController.text.trim().isEmpty) {
+                                            _showFeedbackSnackBar('Message cannot be empty', isError: true);
+                                            return;
+                                          }
+
+                                          Navigator.of(context).pop(); // Close dialog
+                                          
+                                          final prefs = await SharedPreferences.getInstance();
+                                          final jwt = prefs.getString('auth_token');
+                                          
+                                          if (jwt == null) {
+                                            _showFeedbackSnackBar('Not authenticated', isError: true);
+                                            return;
+                                          }
+
+                                          final (message, error) = await MessageService().sendSimpleMessage(
+                                            jwt,
+                                            messageController.text.trim(),
+                                            widget.productId
+                                          );
+
+                                          if (error != null) {
+                                            _showFeedbackSnackBar(error.message, isError: true);
+                                            return;
+                                          }
+
+                                          if (message != null) {
+                                            _showFeedbackSnackBar('Message sent successfully! You can see in messages tab.');
+                                          }
+                                        },
+                                        child: const Text('Send', style: TextStyle(color: primaryRed)),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: AppColors.background,
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                              elevation: 2.0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8.0),
+                              ),
+                            ),
+                            child: const Text("Message"),
+                          ),
+                      ],
                     ),
-                    const SizedBox(height: 16,),
-                    GestureDetector(
-                      onTap: () {
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () {
                         if (_isOwner) {
                           Navigator.push(
                             context,
@@ -402,30 +520,53 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           );
                         }
                       },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.background,
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        elevation: 2.0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                      ),
                       child: Text(
                         "Seller: ${product.user.userName}",
                         style: const TextStyle(
                           fontSize: 16,
-                          color: Colors.blue,
-                          decoration: TextDecoration.underline,
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    // Display Category
+                    const Text(
+                      'Description:',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: primaryDarkGray,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      product.description,
+                      style: const TextStyle(fontSize: 16, color: primaryDarkGray),
+                    ),
+                    const SizedBox(height: 16,),
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0), // Added some padding
-                      child: Row( // Changed to Row for a more compact display
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Category: ',
+                            'Category:',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              color: AppColors.secondary
                             ),
                           ),
-                          GestureDetector(
-                            onTap: () async {
+                          const SizedBox(height: 8),
+                          OutlinedButton(
+                            onPressed: () async {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -436,22 +577,21 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                 ),
                               );
                             },
-                            child: Chip(
-                              label: Text(product.category.categoryName),
-                              backgroundColor: Colors.teal[50], // Different color for distinction
-                              labelStyle: const TextStyle(color: Colors.black87),
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: AppColors.background,
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                              elevation: 2.0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8.0),
+                              ),
                             ),
+                            child: Text(product.category.categoryName),
                           ),
                         ],
                       ),
                     ),
-                    Text(
-                      product.description,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 16),
-                    // Display Locations
+                    const SizedBox(height: 8,),
                     if (product.locations.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16.0),
@@ -461,8 +601,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                             const Text(
                               'Available Locations:',
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
+                                color: AppColors.secondary,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -470,8 +611,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               spacing: 8.0,
                               runSpacing: 4.0,
                               children: product.locations.map((location) {
-                                return GestureDetector(
-                                  onTap: () {
+                                return ElevatedButton(
+                                  onPressed: () {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
@@ -482,88 +623,21 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                       ),
                                     );
                                   },
-                                  child: Chip(
-                                    label: Text(location.locationName),
-                                    backgroundColor: Colors.blueGrey[50],
-                                    labelStyle: const TextStyle(color: Colors.black87),
-                                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: AppColors.background,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                    elevation: 2.0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8.0),
+                                    ),
                                   ),
+                                  child: Text(location.locationName),
                                 );
                               }).toList(),
                             ),
                           ],
                         ),
-                      ),
-                    if (!_isOwner)
-                      ElevatedButton(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              final TextEditingController messageController = TextEditingController();
-                              return AlertDialog(
-                                title: const Text('Send Message'),
-                                content: Card(
-                                  elevation: 0,
-                                  child: TextField(
-                                    controller: messageController,
-                                    decoration: const InputDecoration(
-                                      hintText: 'Type your message...',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    maxLines: 3,
-                                    autofocus: true,
-                                  ),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () async {
-                                      if (messageController.text.trim().isEmpty) {
-                                        _showFeedbackSnackBar('Message cannot be empty', isError: true);
-                                        return;
-                                      }
-
-                                      Navigator.of(context).pop(); // Close dialog
-                                      
-                                      final prefs = await SharedPreferences.getInstance();
-                                      final jwt = prefs.getString('auth_token');
-                                      
-                                      if (jwt == null) {
-                                        _showFeedbackSnackBar('Not authenticated', isError: true);
-                                        return;
-                                      }
-
-                                      final (message, error) = await MessageService().sendSimpleMessage(
-                                        jwt,
-                                        messageController.text.trim(),
-                                        widget.productId
-                                      );
-
-                                      if (error != null) {
-                                        _showFeedbackSnackBar(error.message, isError: true);
-                                        return;
-                                      }
-
-                                      if (message != null) {
-                                        _showFeedbackSnackBar('Message sent successfully! You can see in messages tab.');
-                                        // Navigate back
-                                        if (context.mounted) {
-                                          Navigator.of(context).pop();
-                                        }
-                                      }
-                                    },
-                                    child: const Text('Send'),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                        },
-                        child: const Text("Send Message"),
                       ),
                   ],
                 ),

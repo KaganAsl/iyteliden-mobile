@@ -54,16 +54,16 @@ class _ProfilePageState extends State<ProfilePage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Log Out'),
-        content: const Text('Are you sure you want to log out?'),
+        title: const Text('Log Out', style: TextStyle(color: AppColors.primary)),
+        content: const Text('Are you sure you want to log out?', style: TextStyle(color: AppColors.text),),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.text)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Log Out', style: TextStyle(color: Colors.red)),
+            child: const Text('Log Out', style: TextStyle(color: AppColors.primary)),
           ),
         ],
       ),
@@ -110,16 +110,28 @@ class _ProfilePageState extends State<ProfilePage> {
         title: const Text(
           "Profile",
           style: TextStyle(
-            color: AppColors.text,
+            color: AppColors.background,
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        iconTheme: const IconThemeData(color: AppColors.background),
         elevation: 1,
         centerTitle: true,
         actions: [
           IconButton(
-            icon: Icon(Icons.logout_outlined),
+            icon: Icon(Icons.edit_outlined, color: AppColors.background),
+            tooltip: 'Edit Profile',
+            onPressed: () {
+              // TODO: Navigate to EditProfilePage
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Edit Profile functionality to be implemented.')),
+              );
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.logout_outlined, color: AppColors.background),
+            tooltip: 'Log Out',
             onPressed: () {
               _logout();
             },
@@ -130,9 +142,9 @@ class _ProfilePageState extends State<ProfilePage> {
         future: _futureProfile,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(),);
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
           } if (snapshot.hasError) {
-            return const Center(child: Text("Failed to load profile."));
+            return Center(child: Text("Failed to load profile.", style: TextStyle(color: AppColors.secondary)));
           } if (!snapshot.hasData) {
             return const Center(child: Text("User has no data."));
           }
@@ -141,21 +153,67 @@ class _ProfilePageState extends State<ProfilePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Id: ${user.userId}", style: const TextStyle(fontSize: 16)),
-                    const SizedBox(height: 8),
-                    Text("Email: ${user.mail}", style: const TextStyle(fontSize: 16)),
-                    const SizedBox(height: 8),
-                    Text("Username: ${user.userName}", style: const TextStyle(fontSize: 16)),
-                    const SizedBox(height: 8),
-                    Text("Status: ${user.status}", style: const TextStyle(fontSize: 16)),
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.grey[300],
+                      child: Icon(
+                        Icons.person,
+                        size: 50,
+                        color: Colors.grey[600],
+                      ),
+                      // TODO: Replace with NetworkImage(user.profilePictureUrl) when available
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user.userName,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            user.mail,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "User ID: ${user.userId}",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const Divider(height: 1),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              // Add more ListTiles for other info if needed, e.g., Join Date when available
+              Padding(
+                padding: const EdgeInsets.only(left: 16.0, top: 16.0, bottom: 8.0),
+                child: Text(
+                  "My Products",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.text,
+                  ),
+                ),
+              ),
               Expanded(
                 child: ProductList(
                   jwt: _jwt!,
@@ -258,7 +316,7 @@ class _ProductListState extends State<ProductList> {
   @override
   Widget build(BuildContext context) {
     if (_products.isEmpty && _isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
     if (_products.isEmpty) {
       return const Center(child: Text("No products to display."));
@@ -276,7 +334,7 @@ class _ProductListState extends State<ProductList> {
       itemCount: _products.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= _products.length) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
         }
         final product = _products[index];
         String? displayStatus = product.productStatus;
@@ -289,13 +347,13 @@ class _ProductListState extends State<ProductList> {
           product: product,
           productStatus: displayStatus,
           onTap: () async {
-            final shouldRefresh = await Navigator.push(
+            final result = await Navigator.push<bool>(
               context,
               MaterialPageRoute(
                 builder: (context) => ProductDetailPage(productId: product.productId),
               ),
             );
-            if (shouldRefresh == true && mounted) {
+            if (result == true && mounted) {
               _fetchPage(clearCurrent: true);
             }
           },

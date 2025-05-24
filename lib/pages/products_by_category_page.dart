@@ -6,6 +6,7 @@ import 'package:iyteliden_mobile/pages/product_details_page.dart'; // For naviga
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iyteliden_mobile/models/response/error_response.dart';
 import 'package:iyteliden_mobile/services/favorite_service.dart';
+import 'package:iyteliden_mobile/utils/app_colors.dart';
 
 class ProductsByCategoryPage extends StatefulWidget {
   final int categoryId;
@@ -135,7 +136,7 @@ class _ProductsByCategoryPageState extends State<ProductsByCategoryPage> {
 
   Widget _buildProductList() {
     if (_isLoading && _products.isEmpty && !_initialLoadError) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
     if (_initialLoadError && _products.isEmpty) {
       return Center(
@@ -168,7 +169,7 @@ class _ProductsByCategoryPageState extends State<ProductsByCategoryPage> {
         itemCount: _products.length + (_isLoading && _currentPage + 1 < _totalPages ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= _products.length) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
           }
           final product = _products[index];
           return SimpleProductCard(

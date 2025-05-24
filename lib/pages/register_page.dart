@@ -169,7 +169,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   height: 24,
                   width: 24,
                   child: CircularProgressIndicator(
-                    color: AppColors.background,
+                    color: AppColors.primary,
                     strokeWidth: 3,
                   ),
                 )
