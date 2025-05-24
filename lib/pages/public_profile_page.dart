@@ -165,15 +165,6 @@ class _ProductListState extends State<ProductList> {
           if (widget.focusedProductId != null && widget.focusedProductStatus != null) {
             final index = _products.indexWhere((p) => p.productId == widget.focusedProductId);
             if (index != -1) {
-              // This assumes SimpleProductResponse has a settable productStatus or can be reconstructed.
-              // If SimpleProductResponse is immutable and doesn't have productStatus, 
-              // we might need to adjust its definition or handle this differently.
-              // For now, let's assume we can create a new instance with the updated status or modify it.
-              // This part might need refinement based on SimpleProductResponse structure.
-              
-              // Ideal scenario: SimpleProductResponse has a productStatus field.
-              // If SimpleProductResponse does not have productStatus field, we might need to fetch it or reconsider the approach.
-              // For now, we'll try to update it. This will be passed to SimpleProductCard.
             }
           }
         });
@@ -249,7 +240,7 @@ class _ProductListState extends State<ProductList> {
           jwt: widget.jwt,
           product: product,
           productStatus: displayStatus,
-          isFavorite: product.isLiked ?? true,
+          isFavorite: product.isLiked ?? false,
           onFavorite: () => _toggleFavorite(index),
           onTap: () async {
             final shouldRefresh = await Navigator.push(

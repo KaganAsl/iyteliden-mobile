@@ -426,9 +426,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           ),
                           GestureDetector(
                             onTap: () async {
-                              final prefs = await SharedPreferences.getInstance();
-                              final currentUserIdFromPrefs = prefs.getInt("user_id");
-
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
