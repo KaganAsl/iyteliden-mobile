@@ -163,7 +163,22 @@ class _SearchPageState extends State<SearchPage> {
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        margin: const EdgeInsets.all(10),
+        action: SnackBarAction(
+          label: "OK",
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
     );
   }
 
@@ -227,15 +242,17 @@ class _SearchPageState extends State<SearchPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 "Recent Searches",
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: AppColors.text,
                 ),
               ),
               TextButton(
                 onPressed: _clearSearchHistory,
+                style: TextButton.styleFrom(foregroundColor: AppColors.primary),
                 child: const Text("Clear All"),
               ),
             ],
@@ -247,10 +264,10 @@ class _SearchPageState extends State<SearchPage> {
             itemBuilder: (context, index) {
               final query = _searchHistory[index];
               return ListTile(
-                leading: const Icon(Icons.history),
+                leading: Icon(Icons.history, color: AppColors.primary),
                 title: Text(query),
                 trailing: IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(Icons.close, color: Colors.grey),
                   onPressed: () => _removeFromHistory(query),
                 ),
                 onTap: () {
@@ -349,7 +366,8 @@ class _SearchPageState extends State<SearchPage> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         title: Container(
           height: 40,
           decoration: BoxDecoration(
@@ -416,7 +434,7 @@ class _SearchPageState extends State<SearchPage> {
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
             // Always return true to trigger refresh
             Navigator.pop(context, true);

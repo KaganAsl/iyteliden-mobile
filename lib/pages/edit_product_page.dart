@@ -9,6 +9,7 @@ import 'package:iyteliden_mobile/services/category_service.dart';
 import 'package:iyteliden_mobile/services/image_service.dart';
 import 'package:iyteliden_mobile/services/location_service.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
+import 'package:iyteliden_mobile/utils/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class EditProductPage extends StatefulWidget {
@@ -245,11 +246,13 @@ class _EditProductPageState extends State<EditProductPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Product'), // Changed
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
       ),
       body: _isLoading
-        ? const Center(child: CircularProgressIndicator())
+        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
         : _errorMessage != null
-            ? Center(child: Text(_errorMessage!)) // Display error message
+            ? Center(child: Text(_errorMessage!, style: TextStyle(color: Colors.red))) // Display error message
             : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Form(
@@ -260,7 +263,15 @@ class _EditProductPageState extends State<EditProductPage> {
                     // Product Name
                     TextFormField(
                       controller: _productNameController,
-                      decoration: const InputDecoration(labelText: 'Product Name'),
+                      decoration: InputDecoration(
+                        labelText: 'Product Name',
+                        border: const OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: AppColors.primary),
+                        ),
+                        labelStyle: TextStyle(color: AppColors.text),
+                        floatingLabelStyle: TextStyle(color: AppColors.primary),
+                      ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Please enter product name';
@@ -273,7 +284,15 @@ class _EditProductPageState extends State<EditProductPage> {
                     // Description
                     TextFormField(
                       controller: _descriptionController,
-                      decoration: const InputDecoration(labelText: 'Description'),
+                      decoration: InputDecoration(
+                        labelText: 'Description',
+                        border: const OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: AppColors.primary),
+                        ),
+                        labelStyle: TextStyle(color: AppColors.text),
+                        floatingLabelStyle: TextStyle(color: AppColors.primary),
+                      ),
                       maxLines: 3,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -287,7 +306,16 @@ class _EditProductPageState extends State<EditProductPage> {
                     // Price
                     TextFormField(
                       controller: _priceController,
-                      decoration: const InputDecoration(labelText: 'Price', suffixText: '₺'),
+                      decoration: InputDecoration(
+                        labelText: 'Price', 
+                        suffixText: '₺',
+                        border: const OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: AppColors.primary),
+                        ),
+                        labelStyle: TextStyle(color: AppColors.text),
+                        floatingLabelStyle: TextStyle(color: AppColors.primary),
+                      ),
                       keyboardType: TextInputType.number,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -303,12 +331,13 @@ class _EditProductPageState extends State<EditProductPage> {
                     
                     // Category Dropdown
                     Card(
+                      color: Colors.grey[100],
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text("Category", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            Text("Category", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.text)),
                             const SizedBox(height: 8),
                             if (_categories.isNotEmpty)
                               DropdownButtonFormField<CategoryResponse>(
@@ -324,10 +353,15 @@ class _EditProductPageState extends State<EditProductPage> {
                                     _selectedCategory = newValue;
                                   });
                                 },
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: InputDecoration(
+                                  border: const OutlineInputBorder(),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: AppColors.primary),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                 ),
+                                dropdownColor: Colors.white,
+                                iconEnabledColor: AppColors.primary,
                                 validator: (value) => value == null ? 'Please select a category' : null,
                               )
                             else
@@ -340,12 +374,13 @@ class _EditProductPageState extends State<EditProductPage> {
 
                     // Location Selection (Multi-select chips)
                     Card(
+                      color: Colors.grey[100],
                        child: Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Column(
                            crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text("Locations", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            Text("Locations", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.text)),
                             const SizedBox(height: 8),
                             if (_locations.isNotEmpty)
                               Wrap(
@@ -355,6 +390,12 @@ class _EditProductPageState extends State<EditProductPage> {
                                   return FilterChip(
                                     label: Text(location.locationName),
                                     selected: isSelected,
+                                    backgroundColor: Colors.grey[200],
+                                    selectedColor: AppColors.primary.withOpacity(0.3),
+                                    checkmarkColor: Colors.white,
+                                    side: BorderSide(
+                                      color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                                    ),
                                     onSelected: (bool selected) {
                                       setState(() {
                                         if (selected) {
@@ -378,16 +419,18 @@ class _EditProductPageState extends State<EditProductPage> {
 
                     // Image Selection
                     Card(
+                      color: Colors.grey[100],
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Images',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
+                                color: AppColors.text,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -446,6 +489,8 @@ class _EditProductPageState extends State<EditProductPage> {
                                     label: const Text('Add', textAlign: TextAlign.center),
                                     onPressed: _pickImages,
                                     style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppColors.primary,
+                                      side: BorderSide(color: AppColors.primary),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
@@ -463,7 +508,11 @@ class _EditProductPageState extends State<EditProductPage> {
                     // Submit Button
                     ElevatedButton(
                       onPressed: _isLoading ? null : _updateProduct,
-                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
                       child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Update Product'),
                     ),
                   ],

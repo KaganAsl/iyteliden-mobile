@@ -908,10 +908,15 @@ class _MessagePageState extends State<MessagePage> {
                                   children: [
                                     TextField(
                                       keyboardType: TextInputType.number,
-                                      decoration: const InputDecoration(
+                                      decoration: InputDecoration(
                                         labelText: 'Enter your offer amount',
                                         prefixText: '₺',
-                                        border: OutlineInputBorder(),
+                                        border: const OutlineInputBorder(),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderSide: BorderSide(color: AppColors.primary),
+                                        ),
+                                        labelStyle: TextStyle(color: AppColors.text),
+                                        floatingLabelStyle: TextStyle(color: AppColors.primary),
                                       ),
                                       onChanged: (value) {
                                         setState(() {
@@ -928,6 +933,8 @@ class _MessagePageState extends State<MessagePage> {
                                         return FilterChip(
                                           label: Text(l.locationName),
                                           selected: isSelected,
+                                          backgroundColor: Colors.grey[200],
+                                          selectedColor: AppColors.primary.withOpacity(0.3),
                                           onSelected: (selected) {
                                             setDialogState(() {
                                               if (selected) {
@@ -948,7 +955,7 @@ class _MessagePageState extends State<MessagePage> {
                                       Navigator.of(context).pop();
                                     },
                                     style: TextButton.styleFrom(foregroundColor: Colors.black12),
-                                    child: const Text('Cancel', style: TextStyle(color: AppColors.primary),),
+                                    child: const Text('Cancel', style: TextStyle(color: AppColors.text),),
                                   ),
                                   TextButton(
                                     onPressed: () async {

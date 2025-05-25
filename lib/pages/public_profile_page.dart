@@ -84,8 +84,9 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
         final user = snapshot.data!;
         return Scaffold(
           appBar: AppBar(
-            title: Text(user.userName),
-            backgroundColor: Colors.white,
+            title: Text(user.userName, style: TextStyle(color: AppColors.background)),
+            backgroundColor: AppColors.primary,
+            iconTheme: const IconThemeData(color: AppColors.background),
             elevation: 1,
           ),
           body: Column(
@@ -224,6 +225,16 @@ class _ProductListState extends State<ProductList> {
             if (index != -1) {
             }
           }
+
+          // Sort products: available first, then sold
+          _products.sort((a, b) {
+            final aIsSold = a.productStatus?.toUpperCase() == 'SOLD';
+            final bIsSold = b.productStatus?.toUpperCase() == 'SOLD';
+            
+            if (aIsSold && !bIsSold) return 1; // a is sold, b is not -> b comes first
+            if (!aIsSold && bIsSold) return -1; // a is not sold, b is -> a comes first
+            return 0; // both have same status, keep original order
+          });
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error?.message ?? 'Failed to fetch products'), backgroundColor: Colors.redAccent));
