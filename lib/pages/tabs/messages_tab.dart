@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iyteliden_mobile/models/response/conversation_response.dart';
 import 'package:iyteliden_mobile/services/image_service.dart';
 import 'package:iyteliden_mobile/services/message_service.dart';
+import 'package:iyteliden_mobile/utils/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iyteliden_mobile/pages/message_page.dart';
 
@@ -68,7 +69,7 @@ class _MessagesTabState extends State<MessagesTab> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
 
     if (error != null) {

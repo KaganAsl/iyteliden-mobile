@@ -355,7 +355,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           if (!isSold) {
                             menuItems.add(const PopupMenuItem(value: 'edit', child: Text('Edit')));
                           }
-                          menuItems.add(const PopupMenuItem(value: 'delete', child: Text('Delete')));
+                          menuItems.add(const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: primaryRed))));
                           return menuItems;
                         },
                         onSelected: (value) async {
@@ -593,135 +593,141 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               ),
                           ],
                         ),
-                        if (!_isOwner && !isSold)
-                          ElevatedButton(
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (BuildContext context) {
-                                  final TextEditingController messageController = TextEditingController();
-                                  return AlertDialog(
-                                    backgroundColor: primaryWhite,
-                                    title: const Text('Send Message', style: TextStyle(color: primaryDarkGray)),
-                                    content: Card(
-                                      color: primaryWhite,
-                                      elevation: 0,
-                                      child: TextField(
-                                        controller: messageController,
-                                        style: const TextStyle(color: primaryDarkGray),
-                                        decoration: InputDecoration(
-                                          hintText: 'Type your message...',
-                                          hintStyle: TextStyle(color: primaryDarkGray.withOpacity(0.6)),
-                                          border: const OutlineInputBorder(),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(color: primaryDarkGray.withOpacity(0.5)),
-                                          ),
-                                          focusedBorder: const OutlineInputBorder(
-                                            borderSide: BorderSide(color: primaryRed),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (!_isOwner && !isSold)
+                              ElevatedButton(
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      final TextEditingController messageController = TextEditingController();
+                                      return AlertDialog(
+                                        backgroundColor: primaryWhite,
+                                        title: const Text('Send Message', style: TextStyle(color: primaryDarkGray)),
+                                        content: Card(
+                                          color: primaryWhite,
+                                          elevation: 0,
+                                          child: TextField(
+                                            controller: messageController,
+                                            style: const TextStyle(color: primaryDarkGray),
+                                            decoration: InputDecoration(
+                                              hintText: 'Type your message...',
+                                              hintStyle: TextStyle(color: primaryDarkGray.withOpacity(0.6)),
+                                              border: const OutlineInputBorder(),
+                                              enabledBorder: OutlineInputBorder(
+                                                borderSide: BorderSide(color: primaryDarkGray.withOpacity(0.5)),
+                                              ),
+                                              focusedBorder: const OutlineInputBorder(
+                                                borderSide: BorderSide(color: primaryRed),
+                                              ),
+                                            ),
+                                            maxLines: 3,
+                                            autofocus: true,
                                           ),
                                         ),
-                                        maxLines: 3,
-                                        autofocus: true,
-                                      ),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.of(context).pop(),
-                                        child: const Text('Cancel', style: TextStyle(color: primaryDarkGray)),
-                                      ),
-                                      TextButton(
-                                        onPressed: () async {
-                                          if (messageController.text.trim().isEmpty) {
-                                            _showFeedbackSnackBar('Message cannot be empty', isError: true);
-                                            return;
-                                          }
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.of(context).pop(),
+                                            child: const Text('Cancel', style: TextStyle(color: primaryDarkGray)),
+                                          ),
+                                          TextButton(
+                                            onPressed: () async {
+                                              if (messageController.text.trim().isEmpty) {
+                                                _showFeedbackSnackBar('Message cannot be empty', isError: true);
+                                                return;
+                                              }
 
-                                          Navigator.of(context).pop(); // Close dialog
-                                          
-                                          final prefs = await SharedPreferences.getInstance();
-                                          final jwt = prefs.getString('auth_token');
-                                          
-                                          if (jwt == null) {
-                                            _showFeedbackSnackBar('Not authenticated', isError: true);
-                                            return;
-                                          }
+                                              Navigator.of(context).pop(); // Close dialog
+                                              
+                                              final prefs = await SharedPreferences.getInstance();
+                                              final jwt = prefs.getString('auth_token');
+                                              
+                                              if (jwt == null) {
+                                                _showFeedbackSnackBar('Not authenticated', isError: true);
+                                                return;
+                                              }
 
-                                          final (message, error) = await MessageService().sendSimpleMessage(
-                                            jwt,
-                                            messageController.text.trim(),
-                                            widget.productId
-                                          );
+                                              final (message, error) = await MessageService().sendSimpleMessage(
+                                                jwt,
+                                                messageController.text.trim(),
+                                                widget.productId
+                                              );
 
-                                          if (error != null) {
-                                            _showFeedbackSnackBar(error.message, isError: true);
-                                            return;
-                                          }
+                                              if (error != null) {
+                                                _showFeedbackSnackBar(error.message, isError: true);
+                                                return;
+                                              }
 
-                                          if (message != null) {
-                                            _showFeedbackSnackBar('Message sent successfully! You can see in messages tab.');
-                                          }
-                                        },
-                                        child: const Text('Send', style: TextStyle(color: primaryRed)),
-                                      ),
-                                    ],
+                                              if (message != null) {
+                                                _showFeedbackSnackBar('Message sent successfully! You can see in messages tab.');
+                                              }
+                                            },
+                                            child: const Text('Send', style: TextStyle(color: primaryRed)),
+                                          ),
+                                        ],
+                                      );
+                                    },
                                   );
                                 },
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: AppColors.background,
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                              elevation: 2.0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8.0),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: AppColors.background,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                  elevation: 2.0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8.0),
+                                  ),
+                                ),
+                                child: const Text("Message", style: TextStyle(fontSize: 16))
+                                ,
+                              ),
+                            const SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed: () {
+                                if (_isOwner) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ProfilePage(
+                                        focusedProductId: product.productId,
+                                        focusedProductStatus: product.productStatus,
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => PublicProfilePage(
+                                        userId: product.user.userId,
+                                        focusedProductId: product.productId,
+                                        focusedProductStatus: product.productStatus,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: AppColors.background,
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                elevation: 2.0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8.0),
+                                ),
+                              ),
+                              child: Text(
+                                "Seller: ${product.user.userName}",
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
-                            child: const Text("Message"),
-                          ),
+                          ],
+                        ),
                       ],
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        if (_isOwner) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ProfilePage(
-                                focusedProductId: product.productId,
-                                focusedProductStatus: product.productStatus,
-                              ),
-                            ),
-                          );
-                        } else {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => PublicProfilePage(
-                                userId: product.user.userId,
-                                focusedProductId: product.productId,
-                                focusedProductStatus: product.productStatus,
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.background,
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                        elevation: 2.0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                      ),
-                      child: Text(
-                        "Seller: ${product.user.userName}",
-                        style: const TextStyle(
-                          fontSize: 16,
-                        ),
-                      ),
                     ),
                     const SizedBox(height: 12),
                     const Text(

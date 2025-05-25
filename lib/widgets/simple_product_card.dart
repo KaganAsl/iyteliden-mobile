@@ -48,7 +48,7 @@ class SimpleSelfProductCard extends StatelessWidget {
                       future: ImageService().getImage(jwt, product.coverImage!),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator(),);
+                          return const Center(child: CircularProgressIndicator(color: AppColors.primary),);
                         }
                         final img = snapshot.data?.$1?.url;
                         if (img == null) {

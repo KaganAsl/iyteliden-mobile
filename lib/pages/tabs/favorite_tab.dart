@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/pages/product_details_page.dart';
 import 'package:iyteliden_mobile/services/favorite_service.dart';
+import 'package:iyteliden_mobile/utils/app_colors.dart';
 import 'package:iyteliden_mobile/widgets/simple_product_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -159,7 +160,7 @@ class _FavoriteTabState extends State<FavoriteTab> with AutomaticKeepAliveClient
   Widget build(BuildContext context) {
     super.build(context);
     if (_favorites.isEmpty && _isLoading) {
-      return const Center(child: CircularProgressIndicator(),);
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary),);
     }
     if (_favorites.isEmpty) {
       return const Center(child: Text("You don't have any favorite products."),);
@@ -176,7 +177,7 @@ class _FavoriteTabState extends State<FavoriteTab> with AutomaticKeepAliveClient
       itemCount: _favorites.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
         if (index >= _favorites.length) {
-          return const Center(child: CircularProgressIndicator(),);
+          return const Center(child: CircularProgressIndicator(color: AppColors.primary),);
         }
         final product = _favorites[index];
         return SimpleProductCard(

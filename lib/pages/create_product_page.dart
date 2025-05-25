@@ -218,12 +218,12 @@ class _CreateProductPageState extends State<CreateProductPage> {
       appBar: AppBar(
         title: const Text('Create New Product'),
         backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.background,
+        foregroundColor: Colors.white,
       ),
       body: _isLoading
         ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
         : _errorMessage != null
-            ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent)))
+            ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)))
             : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Form(
@@ -233,16 +233,18 @@ class _CreateProductPageState extends State<CreateProductPage> {
                   children: [
                     // Image Selection
                     Card(
+                      color: Colors.grey[100],
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Images',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
+                                color: AppColors.text,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -271,9 +273,21 @@ class _CreateProductPageState extends State<CreateProductPage> {
                                   ),
                                 ),
                                 if (_selectedImages.length < 6)
-                                  ElevatedButton(
-                                    onPressed: _pickImages,
-                                    child: const Text('Add Images'),
+                                  SizedBox(
+                                    width: 100,
+                                    height: 100,
+                                    child: OutlinedButton.icon(
+                                      icon: const Icon(Icons.add_a_photo),
+                                      label: const Text('Add', textAlign: TextAlign.center),
+                                      onPressed: _pickImages,
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.primary,
+                                        side: BorderSide(color: AppColors.primary),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                    ),
                                   ),
                               ],
                             ),
@@ -286,9 +300,14 @@ class _CreateProductPageState extends State<CreateProductPage> {
                     // Product Details
                     TextFormField(
                       controller: _productNameController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Product Name',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: AppColors.primary),
+                        ),
+                        labelStyle: TextStyle(color: AppColors.text),
+                        floatingLabelStyle: TextStyle(color: AppColors.primary),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -301,9 +320,14 @@ class _CreateProductPageState extends State<CreateProductPage> {
 
                     TextFormField(
                       controller: _descriptionController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Description',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: AppColors.primary),
+                        ),
+                        labelStyle: TextStyle(color: AppColors.text),
+                        floatingLabelStyle: TextStyle(color: AppColors.primary),
                       ),
                       maxLines: 3,
                       validator: (value) {
@@ -317,9 +341,14 @@ class _CreateProductPageState extends State<CreateProductPage> {
 
                     TextFormField(
                       controller: _priceController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Price',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: AppColors.primary),
+                        ),
+                        labelStyle: TextStyle(color: AppColors.text),
+                        floatingLabelStyle: TextStyle(color: AppColors.primary),
                         suffixText: '₺',
                       ),
                       keyboardType: TextInputType.number,
@@ -337,10 +366,17 @@ class _CreateProductPageState extends State<CreateProductPage> {
 
                     // Category Selection
                     DropdownButtonFormField<CategoryResponse>(
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Category',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: AppColors.primary),
+                        ),
+                        labelStyle: TextStyle(color: AppColors.text),
+                        floatingLabelStyle: TextStyle(color: AppColors.primary),
                       ),
+                      dropdownColor: Colors.white,
+                      iconEnabledColor: AppColors.primary,
                       value: _selectedCategory,
                       items: _categories.map((category) {
                         return DropdownMenuItem(
@@ -364,16 +400,18 @@ class _CreateProductPageState extends State<CreateProductPage> {
 
                     // Location Selection
                     Card(
+                      color: Colors.grey[100],
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Locations',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
+                                color: AppColors.text,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -385,6 +423,12 @@ class _CreateProductPageState extends State<CreateProductPage> {
                                 return FilterChip(
                                   label: Text(location.locationName),
                                   selected: isSelected,
+                                  backgroundColor: Colors.grey[200],
+                                  selectedColor: AppColors.primary.withOpacity(0.3),
+                                  checkmarkColor: Colors.white,
+                                  side: BorderSide(
+                                    color: isSelected ? AppColors.primary : Colors.grey.shade300,
+                                  ),
                                   onSelected: (selected) {
                                     setState(() {
                                       if (selected) {
@@ -406,6 +450,8 @@ class _CreateProductPageState extends State<CreateProductPage> {
                     ElevatedButton(
                       onPressed: _createProduct,
                       style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: const Text('Create Product'),
