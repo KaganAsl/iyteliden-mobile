@@ -18,6 +18,7 @@ class _MessagesTabState extends State<MessagesTab> {
   final ImageService _imageService = ImageService();
   List<Conversation> conversations = [];
   bool isLoading = true;
+  bool isRefreshing = false;
   String? error;
   int currentPage = 0;
   bool hasMorePages = true;
@@ -66,6 +67,55 @@ class _MessagesTabState extends State<MessagesTab> {
     }
   }
 
+  Future<void> _onRefresh() async {
+    if (isRefreshing) return;
+    
+    setState(() {
+      isRefreshing = true;
+      error = null;
+    });
+    
+    try {
+      // Reset pagination
+      currentPage = 0;
+      hasMorePages = true;
+      
+      final prefs = await SharedPreferences.getInstance();
+      final jwt = prefs.getString('auth_token');
+      
+      if (jwt == null) {
+        setState(() {
+          error = 'Not authenticated';
+          isRefreshing = false;
+        });
+        return;
+      }
+
+      final (response, errorResponse) = await _messageService.getUserConversations(jwt, currentPage);
+      
+      if (errorResponse != null) {
+        setState(() {
+          error = errorResponse.message;
+          isRefreshing = false;
+        });
+        return;
+      }
+
+      if (response != null) {
+        setState(() {
+          conversations = response.content;
+          hasMorePages = currentPage < response.page.totalPages - 1;
+          isRefreshing = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        error = e.toString();
+        isRefreshing = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -73,57 +123,82 @@ class _MessagesTabState extends State<MessagesTab> {
     }
 
     if (error != null) {
-      return Center(child: Text('Error: $error'));
+      return RefreshIndicator(
+        onRefresh: _onRefresh,
+        color: AppColors.primary,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: Center(child: Text('Error: $error')),
+          ),
+        ),
+      );
     }
 
     if (conversations.isEmpty) {
-      return const Center(child: Text('No conversations yet'));
+      return RefreshIndicator(
+        onRefresh: _onRefresh,
+        color: AppColors.primary,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: const Center(child: Text('No conversations yet')),
+          ),
+        ),
+      );
     }
 
-    return ListView.builder(
-      itemCount: conversations.length,
-      itemBuilder: (context, index) {
-        final conversation = conversations[index];
-        return FutureBuilder(
-          future: Future(() async {
-            if (conversation.coverImgKey == null) return null;
-            final prefs = await SharedPreferences.getInstance();
-            return _imageService.getImage(
-              prefs.getString('auth_token') ?? '',
-              conversation.coverImgKey!,
-            );
-          }),
-          builder: (context, snapshot) {
-            String imageUrl = '';
-            if (snapshot.hasData && snapshot.data!.$1 != null) {
-              imageUrl = snapshot.data!.$1!.url;
-            }
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: AppColors.primary,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: conversations.length,
+        itemBuilder: (context, index) {
+          final conversation = conversations[index];
+          return FutureBuilder(
+            future: Future(() async {
+              if (conversation.coverImgKey == null) return null;
+              final prefs = await SharedPreferences.getInstance();
+              return _imageService.getImage(
+                prefs.getString('auth_token') ?? '',
+                conversation.coverImgKey!,
+              );
+            }),
+            builder: (context, snapshot) {
+              String imageUrl = '';
+              if (snapshot.hasData && snapshot.data!.$1 != null) {
+                imageUrl = snapshot.data!.$1!.url;
+              }
 
-            return ListTile(
-              leading: CircleAvatar(
-                backgroundImage: imageUrl.isNotEmpty
-                    ? NetworkImage(imageUrl)
-                    : null,
-                child: imageUrl.isEmpty
-                    ? const Icon(Icons.image_not_supported)
-                    : null,
-              ),
-              title: Text(conversation.productName),
-              subtitle: Text(conversation.username),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => MessagePage(
-                      conversation: conversation,
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundImage: imageUrl.isNotEmpty
+                      ? NetworkImage(imageUrl)
+                      : null,
+                  child: imageUrl.isEmpty
+                      ? const Icon(Icons.image_not_supported)
+                      : null,
+                ),
+                title: Text(conversation.productName),
+                subtitle: Text(conversation.username),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MessagePage(
+                        conversation: conversation,
+                      ),
                     ),
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

@@ -18,6 +18,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
   final List<SimpleProductResponse> _products = [];
   bool _isLoading = false;
+  bool _isRefreshing = false;
   int _currentPage = 0;
   int _totalPages = 1;
   String? _jwt;
@@ -228,48 +229,101 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     }
   }
 
+  // Add refresh method
+  Future<void> _onRefresh() async {
+    if (_isRefreshing || _jwt == null) return;
+    
+    setState(() {
+      _isRefreshing = true;
+    });
+    
+    try {
+      // Reset pagination and clear products
+      _currentPage = 0;
+      _totalPages = 1;
+      _products.clear();
+      _favoriteCache.clear();
+      _lastFavoriteRefresh = null;
+      
+      // Fetch fresh data
+      await _fetchProducts();
+      
+      // Refresh favorite statuses
+      if (_products.isNotEmpty) {
+        await _refreshFavoriteStatuses();
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError("Failed to refresh: ${e.toString()}");
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     if (_products.isEmpty && _isLoading) {
       return Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
-    if (_products.isEmpty) {
-      return const Center(child: Text("No products available."),);
+    if (_products.isEmpty && !_isRefreshing) {
+      return RefreshIndicator(
+        onRefresh: _onRefresh,
+        color: AppColors.primary,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: const Center(
+              child: Text("No products available."),
+            ),
+          ),
+        ),
+      );
     }
-    return GridView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 3/4,
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      color: AppColors.primary,
+      child: GridView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(12),
+        physics: const AlwaysScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 3/4,
+        ),
+        itemCount: _products.length + (_isLoading ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index >= _products.length) {
+            return Center(child: CircularProgressIndicator(color: AppColors.primary));
+          }
+          final product = _products[index];
+          return SimpleProductCard(
+            jwt: _jwt!,
+            product: product,
+            isFavorite: product.isLiked ?? false,
+            onFavorite: () => _toggleFavorite(index),
+            onTap: () async {
+              final shouldRefresh = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProductDetailPage(productId: _products[index].productId),
+                ),
+              );
+              if (shouldRefresh == true && mounted) {
+                await _updateSingleProductFavoriteStatus(index);
+              }
+            },
+          );
+        },
       ),
-      itemCount: _products.length + (_isLoading ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index >= _products.length) {
-          return Center(child: CircularProgressIndicator(color: AppColors.primary));
-        }
-        final product = _products[index];
-        return SimpleProductCard(
-          jwt: _jwt!,
-          product: product,
-          isFavorite: product.isLiked ?? false,
-          onFavorite: () => _toggleFavorite(index),
-          onTap: () async {
-            final shouldRefresh = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ProductDetailPage(productId: _products[index].productId),
-              ),
-            );
-            if (shouldRefresh == true && mounted) {
-              await _updateSingleProductFavoriteStatus(index);
-            }
-          },
-        );
-      },
     );
   }
 }

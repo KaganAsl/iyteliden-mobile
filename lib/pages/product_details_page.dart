@@ -591,6 +591,42 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                   ),
                                 ),
                               ),
+                              const SizedBox(height: 8),
+                            GestureDetector(
+                              onTap: () {
+                                if (_isOwner) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ProfilePage(
+                                        focusedProductId: product.productId,
+                                        focusedProductStatus: product.productStatus,
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => PublicProfilePage(
+                                        userId: product.user.userId,
+                                        focusedProductId: product.productId,
+                                        focusedProductStatus: product.productStatus,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Text(
+                                "Seller: ${product.user.userName}",
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: AppColors.primary,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: AppColors.primary,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                         Column(
@@ -683,48 +719,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                 child: const Text("Message", style: TextStyle(fontSize: 16))
                                 ,
                               ),
-                            const SizedBox(height: 8),
-                            ElevatedButton(
-                              onPressed: () {
-                                if (_isOwner) {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => ProfilePage(
-                                        focusedProductId: product.productId,
-                                        focusedProductStatus: product.productStatus,
-                                      ),
-                                    ),
-                                  );
-                                } else {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => PublicProfilePage(
-                                        userId: product.user.userId,
-                                        focusedProductId: product.productId,
-                                        focusedProductStatus: product.productStatus,
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: AppColors.background,
-                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                                elevation: 2.0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8.0),
-                                ),
-                              ),
-                              child: Text(
-                                "Seller: ${product.user.userName}",
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ],
