@@ -189,7 +189,13 @@ class _ProductsByLocationPageState extends State<ProductsByLocationPage> {
               );
               // If coming back from product details and a favorite status might have changed
               if (result == true && mounted) {
-                 _fetchProductsPage(clearCurrent: true);
+                // Update just this product's favorite status instead of full refresh
+                final (isFavorite, error) = await FavoriteService().checkFavorite(_jwt!, product.productId);
+                if (error == null && isFavorite != null && mounted) {
+                  setState(() {
+                    product.isLiked = isFavorite;
+                  });
+                }
               }
             },
             onFavorite: () {
