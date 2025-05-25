@@ -184,7 +184,13 @@ class _ProductsByCategoryPageState extends State<ProductsByCategoryPage> {
                 ),
               );
               if (result == true && mounted) { // Check if a favorite status might have changed
-                 _fetchProductsPage(clearCurrent: true); // Refresh the list
+                // Update just this product's favorite status instead of full refresh
+                final (isFavorite, error) = await FavoriteService().checkFavorite(_jwt!, product.productId);
+                if (error == null && isFavorite != null && mounted) {
+                  setState(() {
+                    product.isLiked = isFavorite;
+                  });
+                }
               }
             },
             onFavorite: () {

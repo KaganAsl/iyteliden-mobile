@@ -554,7 +554,7 @@ class _SearchPageState extends State<SearchPage> with TickerProviderStateMixin {
               if (shouldRefresh == true && mounted) {
                 _favoritesChanged = true;
                 final (isFavorite, error) = await FavoriteService().checkFavorite(_jwt!, product.productId);
-                if (error == null && mounted) {
+                if (error == null && isFavorite != null && mounted) {
                   setState(() {
                     product.isLiked = isFavorite;
                   });

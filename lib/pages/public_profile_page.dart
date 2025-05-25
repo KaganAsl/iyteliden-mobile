@@ -314,19 +314,14 @@ class _ProductListState extends State<ProductList> {
     if (mounted) {
       if (error == null && pageData != null) {
         // Fetch favorite status for all products concurrently
-        List<bool?> favoriteStatuses = await Future.wait(
-          pageData.content.map((p) async {
-            final (isFavorite, favError) = await FavoriteService().checkFavorite(widget.jwt, p.productId);
-            if (favError == null) {
-              return isFavorite;
-            }
-            return null; // Or handle error appropriately
-          }).toList()
-        );
-
-        // Assign fetched favorite statuses to products
-        for (int i = 0; i < pageData.content.length; i++) {
-          pageData.content[i].isLiked = favoriteStatuses[i];
+        if (pageData.content.isNotEmpty) {
+          final productIds = pageData.content.map((p) => p.productId).toList();
+          final favoriteMap = await FavoriteService().checkMultipleFavorites(widget.jwt, productIds);
+          
+          // Assign fetched favorite statuses to products
+          for (var product in pageData.content) {
+            product.isLiked = favoriteMap[product.productId] ?? false;
+          }
         }
         
         setState(() {
@@ -431,12 +426,14 @@ class _ProductListState extends State<ProductList> {
                 builder: (context) => ProductDetailPage(productId: _products[index].productId),
               ),
             );
-            if (shouldRefresh == true) {
-              setState(() {
-                _products.clear();
-                _currentPage = 0;
-              });
-              _fetchPage();
+            if (shouldRefresh == true && mounted) {
+              // Update just this product's favorite status instead of full refresh
+              final (isFavorite, error) = await FavoriteService().checkFavorite(widget.jwt, _products[index].productId);
+              if (error == null && isFavorite != null && mounted) {
+                setState(() {
+                  _products[index].isLiked = isFavorite;
+                });
+              }
             }
           },
         );

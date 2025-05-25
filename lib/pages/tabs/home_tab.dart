@@ -23,6 +23,13 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   String? _jwt;
   int? _userId;
   bool _isInitialized = false;
+  
+  // Cache for favorite statuses to avoid redundant API calls
+  final Map<int, bool> _favoriteCache = {};
+  DateTime? _lastFavoriteRefresh;
+  
+  // Debouncing for scroll events
+  DateTime? _lastScrollCheck;
 
   @override
   bool get wantKeepAlive => true;
@@ -47,21 +54,45 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   Future<void> _refreshFavoriteStatuses() async {
     if (_jwt == null || _products.isEmpty || !mounted) return;
 
-    for (int i = 0; i < _products.length; i++) {
-      try {
-        final (isFavorite, error) = await FavoriteService().checkFavorite(_jwt!, _products[i].productId);
-        if (error == null && mounted && isFavorite != _products[i].isLiked) {
-          setState(() {
-            _products[i].isLiked = isFavorite;
-          });
-        }
-      } catch (e) {
-        // Silently handle errors to avoid disrupting the UI
+    // Only refresh if cache is older than 30 seconds or doesn't exist
+    final now = DateTime.now();
+    if (_lastFavoriteRefresh != null && 
+        now.difference(_lastFavoriteRefresh!).inSeconds < 30) {
+      return;
+    }
+
+    try {
+      final productIds = _products.map((p) => p.productId).toList();
+      final favoriteMap = await FavoriteService().checkMultipleFavorites(_jwt!, productIds);
+      
+      if (mounted) {
+        // Update cache
+        _favoriteCache.addAll(favoriteMap);
+        _lastFavoriteRefresh = now;
+        
+        setState(() {
+          for (var product in _products) {
+            final newFavoriteStatus = favoriteMap[product.productId];
+            if (newFavoriteStatus != null) {
+              product.isLiked = newFavoriteStatus;
+            }
+          }
+        });
       }
+    } catch (e) {
+      // Silently handle errors to avoid disrupting the UI
     }
   }
 
   void _onScroll() {
+    // Debounce scroll events to improve performance
+    final now = DateTime.now();
+    if (_lastScrollCheck != null && 
+        now.difference(_lastScrollCheck!).inMilliseconds < 100) {
+      return;
+    }
+    _lastScrollCheck = now;
+    
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200 &&
         !_isLoading &&
@@ -74,7 +105,30 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   @override
   void dispose() {
     _scrollController.dispose();
+    _favoriteCache.clear();
     super.dispose();
+  }
+  // Helper method to update a single product's favorite status
+  Future<void> _updateSingleProductFavoriteStatus(int productIndex) async {
+    if (_jwt == null || !mounted || productIndex >= _products.length) return;
+    
+    final productId = _products[productIndex].productId;
+    
+    // Clear cache for this specific product
+    _favoriteCache.remove(productId);
+    
+    try {
+      final (isFavorite, error) = await FavoriteService().checkFavorite(_jwt!, productId);
+      if (error == null && isFavorite != null && mounted) {
+        setState(() {
+          _products[productIndex].isLiked = isFavorite;
+        });
+        // Update cache with new status
+        _favoriteCache[productId] = isFavorite;
+      }
+    } catch (e) {
+      // Silently handle errors to avoid disrupting the UI
+    }
   }
 
   Future<void> _loadJWTAndFirstPage() async {
@@ -106,36 +160,40 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   Future<void> _fetchProducts() async {
     if (_jwt == null || !mounted) return;
 
+    setState(() => _isLoading = true);
+    
     try {
-      setState(() => _isLoading = true);
       final (data, error) = await ProductService().getAllProducts(_jwt!, _currentPage);
       
       if (!mounted) return;
       
       if (error != null || data == null) {
         _showError(error?.message ?? "Failed to load products.");
-        setState(() => _isLoading = false);
       } else {
         List<SimpleProductResponse> newProducts = data.content;
-        List<SimpleProductResponse> productsToDisplay;
-
+        
         // Filter products
-        productsToDisplay = newProducts.where((product) {
+        final productsToDisplay = newProducts.where((product) {
           bool isNotSold = !(product.productStatus != null && product.productStatus!.toUpperCase() == 'SOLD');
           bool isNotCurrentUserProduct = _userId == null || product.userId == null || product.userId != _userId;
           return isNotSold && isNotCurrentUserProduct;
         }).toList();
         
-        setState(() {
-          _products.addAll(productsToDisplay);
-          _totalPages = data.page.totalPages;
-          _isLoading = false;
-        });
+        // Only update state if we have products to add or if this is the first page
+        if (productsToDisplay.isNotEmpty || _currentPage == 0) {
+          setState(() {
+            _products.addAll(productsToDisplay);
+            _totalPages = data.page.totalPages;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
         _showError("Error loading products: ${e.toString()}");
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -164,6 +222,9 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
         product.isLiked = liked; // revert
       });
       _showError(error.message);
+    } else {
+      // Update cache with the new favorite status
+      _favoriteCache[product.productId] = !liked;
     }
   }
 
@@ -204,14 +265,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               ),
             );
             if (shouldRefresh == true && mounted) {
-              final (isFavorite, error) = await FavoriteService().checkFavorite(_jwt!, _products[index].productId);
-              if (error == null && mounted) {
-                setState(() {
-                  _products[index].isLiked = isFavorite;
-                });
-              }
-              
-              _refreshFavoriteStatuses();
+              await _updateSingleProductFavoriteStatus(index);
             }
           },
         );

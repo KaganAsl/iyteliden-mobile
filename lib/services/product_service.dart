@@ -346,11 +346,14 @@ class ProductService {
           products = SimpleProductListResponse.fromJson(json).content;
         }
 
-        // Check favorite status for each product
-        for (var product in products) {
-          final (isFavorite, error) = await FavoriteService().checkFavorite(jwt, product.productId);
-          if (error == null) {
-            product.isLiked = isFavorite;
+        // Check favorite status for all products concurrently
+        if (products.isNotEmpty) {
+          final productIds = products.map((p) => p.productId).toList();
+          final favoriteMap = await FavoriteService().checkMultipleFavorites(jwt, productIds);
+          
+          // Apply favorite statuses
+          for (var product in products) {
+            product.isLiked = favoriteMap[product.productId] ?? false;
           }
         }
 
@@ -400,11 +403,14 @@ class ProductService {
           products = SimpleProductListResponse.fromJson(json).content;
         }
 
-        // Check favorite status for each product
-        for (var product in products) {
-          final (isFavorite, error) = await FavoriteService().checkFavorite(jwt, product.productId);
-          if (error == null) {
-            product.isLiked = isFavorite;
+        // Check favorite status for all products concurrently
+        if (products.isNotEmpty) {
+          final productIds = products.map((p) => p.productId).toList();
+          final favoriteMap = await FavoriteService().checkMultipleFavorites(jwt, productIds);
+          
+          // Apply favorite statuses
+          for (var product in products) {
+            product.isLiked = favoriteMap[product.productId] ?? false;
           }
         }
 
@@ -450,13 +456,17 @@ class ProductService {
         final json = jsonDecode(response.body);
         SimpleProductListResponse productList = SimpleProductListResponse.fromJson(json);
 
-        // Check favorite status for each product
-        for (var product in productList.content) {
-          final (isFavorite, error) = await FavoriteService().checkFavorite(jwt, product.productId);
-          if (error == null) {
-            product.isLiked = isFavorite;
+        // Check favorite status for all products concurrently
+        if (productList.content.isNotEmpty) {
+          final productIds = productList.content.map((p) => p.productId).toList();
+          final favoriteMap = await FavoriteService().checkMultipleFavorites(jwt, productIds);
+          
+          // Apply favorite statuses
+          for (var product in productList.content) {
+            product.isLiked = favoriteMap[product.productId] ?? false;
           }
         }
+        
         return (productList, null);
       } else {
         final json = jsonDecode(response.body);
@@ -486,13 +496,17 @@ class ProductService {
         final json = jsonDecode(response.body);
         SimpleProductListResponse productList = SimpleProductListResponse.fromJson(json);
 
-        // Check favorite status for each product
-        for (var product in productList.content) {
-          final (isFavorite, error) = await FavoriteService().checkFavorite(jwt, product.productId);
-          if (error == null) {
-            product.isLiked = isFavorite;
+        // Check favorite status for all products concurrently
+        if (productList.content.isNotEmpty) {
+          final productIds = productList.content.map((p) => p.productId).toList();
+          final favoriteMap = await FavoriteService().checkMultipleFavorites(jwt, productIds);
+          
+          // Apply favorite statuses
+          for (var product in productList.content) {
+            product.isLiked = favoriteMap[product.productId] ?? false;
           }
         }
+        
         return (productList, null);
       } else {
         final json = jsonDecode(response.body);

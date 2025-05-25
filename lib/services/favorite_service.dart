@@ -78,4 +78,23 @@ class FavoriteService {
       return error;
     }
   }
+
+  // New method to check multiple favorites concurrently
+  Future<Map<int, bool>> checkMultipleFavorites(String jwt, List<int> productIds) async {
+    if (productIds.isEmpty) return {};
+    
+    // Make concurrent API calls instead of sequential ones
+    final futures = productIds.map((productId) => checkFavorite(jwt, productId));
+    final results = await Future.wait(futures);
+    
+    final favoriteMap = <int, bool>{};
+    for (int i = 0; i < productIds.length; i++) {
+      final (isFavorite, error) = results[i];
+      if (error == null && isFavorite != null) {
+        favoriteMap[productIds[i]] = isFavorite;
+      }
+    }
+    
+    return favoriteMap;
+  }
 }
