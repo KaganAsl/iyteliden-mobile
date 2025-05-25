@@ -120,6 +120,169 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     }
   }
 
+  void _showFullScreenImage(String imageUrl, DetailedProductResponse product) {
+    int dialogImageIndex = _currentImageIndex; // Local copy for the dialog
+    
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: EdgeInsets.zero,
+              child: Stack(
+                children: [
+                  // Full screen image
+                  Center(
+                    child: InteractiveViewer(
+                      panEnabled: true,
+                      boundaryMargin: const EdgeInsets.all(20),
+                      minScale: 0.5,
+                      maxScale: 4.0,
+                      child: FutureBuilder<(ImageResponse?, ErrorResponse?)>(
+                        future: ImageService().getImage(_jwt!, product.imageUrls[dialogImageIndex]),
+                        builder: (context, imgSnapshot) {
+                          if (imgSnapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(color: primaryWhite),
+                            );
+                          }
+                          
+                          if (imgSnapshot.hasError || imgSnapshot.data?.$1?.url == null) {
+                            return Container(
+                              color: Colors.grey[800],
+                              child: const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.broken_image_outlined, size: 64, color: primaryWhite),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'Failed to load image',
+                                    style: TextStyle(color: primaryWhite, fontSize: 16),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          
+                          return Image.network(
+                            imgSnapshot.data!.$1!.url,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey[800],
+                                child: const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.broken_image_outlined, size: 64, color: primaryWhite),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'Failed to load image',
+                                      style: TextStyle(color: primaryWhite, fontSize: 16),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  // Close button
+                  Positioned(
+                    top: 40,
+                    right: 20,
+                    child: IconButton(
+                      icon: const Icon(Icons.close, color: primaryWhite, size: 30),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  // Image counter
+                  Positioned(
+                    bottom: 40,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${dialogImageIndex + 1} / ${product.imageUrls.length}',
+                          style: const TextStyle(color: primaryWhite, fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Navigation arrows
+                  if (product.imageUrls.length > 1) ...[
+                    // Left arrow
+                    Positioned(
+                      left: 20,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.arrow_back_ios,
+                            color: dialogImageIndex > 0 ? primaryWhite : Colors.grey[600],
+                            size: 30,
+                          ),
+                          onPressed: dialogImageIndex > 0
+                              ? () {
+                                  setDialogState(() {
+                                    dialogImageIndex--;
+                                  });
+                                  // Also update the main page state
+                                  setState(() {
+                                    _currentImageIndex = dialogImageIndex;
+                                  });
+                                }
+                              : null,
+                        ),
+                      ),
+                    ),
+                    // Right arrow
+                    Positioned(
+                      right: 20,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.arrow_forward_ios,
+                            color: dialogImageIndex < product.imageUrls.length - 1 ? primaryWhite : Colors.grey[600],
+                            size: 30,
+                          ),
+                          onPressed: dialogImageIndex < product.imageUrls.length - 1
+                              ? () {
+                                  setDialogState(() {
+                                    dialogImageIndex++;
+                                  });
+                                  // Also update the main page state
+                                  setState(() {
+                                    _currentImageIndex = dialogImageIndex;
+                                  });
+                                }
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<DetailedProductResponse>(
@@ -326,27 +489,51 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                     ),
                                   );
                                 }
-                                return Image.network(
-                                  imgSnapshot.data!.$1!.url,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      height: 250,
-                                      width: double.infinity,
-                                      color: Colors.grey[200],
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(Icons.broken_image_outlined, size: 48, color: primaryDarkGray),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'Failed to load image',
-                                            style: TextStyle(color: primaryDarkGray),
-                                          ),
-                                        ],
+                                return GestureDetector(
+                                  onTap: () => _showFullScreenImage(imgSnapshot.data!.$1!.url, product),
+                                  child: Stack(
+                                    children: [
+                                      Image.network(
+                                        imgSnapshot.data!.$1!.url,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            height: 250,
+                                            width: double.infinity,
+                                            color: Colors.grey[200],
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(Icons.broken_image_outlined, size: 48, color: primaryDarkGray),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  'Failed to load image',
+                                                  style: TextStyle(color: primaryDarkGray),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
                                       ),
-                                    );
-                                  },
+                                      // Tap indicator overlay
+                                      Positioned(
+                                        top: 8,
+                                        right: 8,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black54,
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: const Icon(
+                                            Icons.zoom_in,
+                                            color: primaryWhite,
+                                            size: 20,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 );
                               },
                             ),
