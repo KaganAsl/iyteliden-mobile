@@ -395,7 +395,8 @@ class _SearchPageState extends State<SearchPage> with TickerProviderStateMixin {
         final category = _categories[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          elevation: 2,
+          color: Colors.grey[100],
+          elevation: 1,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
@@ -406,12 +407,13 @@ class _SearchPageState extends State<SearchPage> with TickerProviderStateMixin {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
+                color: Colors.black,
               ),
             ),
             trailing: const Icon(
               Icons.arrow_forward_ios,
               size: 16,
-              color: Colors.grey,
+              color: AppColors.primary,
             ),
             onTap: () {
               Navigator.push(
@@ -460,7 +462,8 @@ class _SearchPageState extends State<SearchPage> with TickerProviderStateMixin {
         final location = _locations[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          elevation: 2,
+          color: Colors.grey[100],
+          elevation: 1,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
@@ -470,10 +473,10 @@ class _SearchPageState extends State<SearchPage> with TickerProviderStateMixin {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
+                color: Colors.grey[300],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.location_on,
                 color: AppColors.primary,
                 size: 24,
@@ -484,12 +487,13 @@ class _SearchPageState extends State<SearchPage> with TickerProviderStateMixin {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
+                color: AppColors.text,
               ),
             ),
             trailing: const Icon(
               Icons.arrow_forward_ios,
               size: 16,
-              color: Colors.grey,
+              color: AppColors.primary,
             ),
             onTap: () {
               Navigator.push(
@@ -647,9 +651,9 @@ class _SearchPageState extends State<SearchPage> with TickerProviderStateMixin {
         ),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: AppColors.primary,
+          labelColor: AppColors.background,
+          unselectedLabelColor: AppColors.background,
+          indicatorColor: AppColors.background,
           tabs: const [
             Tab(text: "Recent Searches"),
             Tab(text: "By Category"),

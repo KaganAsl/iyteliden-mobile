@@ -387,7 +387,7 @@ class _ProductListState extends State<ProductList> {
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('Cancel'),
+                    child: const Text('Cancel', style: TextStyle(color: AppColors.text)),
                   ),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(true),

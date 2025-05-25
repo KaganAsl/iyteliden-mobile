@@ -382,7 +382,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                   actions: [
                                     TextButton(
                                       onPressed: _isDeleting ? null : () => Navigator.of(dialogBuilderContext).pop(),
-                                      child: const Text('Cancel'),
+                                      child: const Text('Cancel', style: TextStyle(color: AppColors.text)),
                                     ),
                                     TextButton(
                                       onPressed: _isDeleting ? null : () async {
@@ -630,7 +630,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                         actions: [
                                           TextButton(
                                             onPressed: () => Navigator.of(context).pop(),
-                                            child: const Text('Cancel', style: TextStyle(color: primaryDarkGray)),
+                                            child: const Text('Cancel', style: TextStyle(color: AppColors.text)),
                                           ),
                                           TextButton(
                                             onPressed: () async {
