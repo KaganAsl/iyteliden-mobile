@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
 import 'package:iyteliden_mobile/models/response/user_response.dart';
 import 'package:iyteliden_mobile/pages/product_details_page.dart';
+import 'package:iyteliden_mobile/pages/user_reviews_page.dart';
 import 'package:iyteliden_mobile/services/favorite_service.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
+import 'package:iyteliden_mobile/services/review_service.dart';
 import 'package:iyteliden_mobile/services/user_service.dart';
 import 'package:iyteliden_mobile/widgets/simple_product_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,6 +31,7 @@ class PublicProfilePage extends StatefulWidget {
 class _PublicProfilePageState extends State<PublicProfilePage> {
 
   late Future<UserResponse> _userFuture;
+  final ReviewService _reviewService = ReviewService();
   String? _jwt;
 
   @override
@@ -47,6 +50,14 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
       throw Exception(error.message);
     }
     return user!;
+  }
+
+  Future<double> _loadRating(int userId) async {
+    if (_jwt == null) throw Exception("JWT not found");
+    final (res, err) = await _reviewService.getRatingAverageForUser(_jwt!, userId);
+    if (err != null) {
+    }
+    return res!;
   }
 
   void _showFeedbackSnackBar(String message, {bool isError = false}) {
@@ -118,6 +129,108 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
                         Text(
                           "User ID: ${user.userId}", 
                           style: TextStyle(fontSize: 14, color: Colors.grey[600])
+                        ),
+                        const SizedBox(height: 8),
+                        // Rating display
+                        FutureBuilder<double>(
+                          future: _loadRating(user.userId),
+                          builder: (context, ratingSnapshot) {
+                            if (ratingSnapshot.connectionState == ConnectionState.waiting) {
+                              return Row(
+                                children: [
+                                  SizedBox(
+                                    width: 12,
+                                    height: 12,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    "Loading rating...",
+                                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                                  ),
+                                ],
+                              );
+                            }
+                            
+                            if (ratingSnapshot.hasError || !ratingSnapshot.hasData) {
+                              return Row(
+                                children: [
+                                  Icon(Icons.star_border, size: 16, color: Colors.grey[400]),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    "No rating yet",
+                                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                                  ),
+                                ],
+                              );
+                            }
+                            
+                            final rating = ratingSnapshot.data!;
+                            final fullStars = rating.floor();
+                            final hasHalfStar = rating - fullStars >= 0.5;
+                            
+                            return Row(
+                              children: [
+                                // Display stars
+                                Row(
+                                  children: List.generate(5, (index) {
+                                    if (index < fullStars) {
+                                      return Icon(Icons.star, size: 16, color: Colors.amber);
+                                    } else if (index == fullStars && hasHalfStar) {
+                                      return Icon(Icons.star_half, size: 16, color: Colors.amber);
+                                    } else {
+                                      return Icon(Icons.star_border, size: 16, color: Colors.grey[400]);
+                                    }
+                                  }),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "${rating.toStringAsFixed(1)} / 5.0",
+                                  style: TextStyle(
+                                    fontSize: 14, 
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        // Reviews button
+                        TextButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => UserReviewsPage(
+                                  userId: user.userId,
+                                  userName: user.userName,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: Icon(
+                            Icons.rate_review_outlined,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                          label: Text(
+                            "View Reviews",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
                         ),
                       ],
                     )
