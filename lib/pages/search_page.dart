@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:iyteliden_mobile/models/response/product_response.dart';
+import 'package:iyteliden_mobile/models/response/category_response.dart';
+import 'package:iyteliden_mobile/models/response/location_response.dart';
 import 'package:iyteliden_mobile/pages/product_details_page.dart';
+import 'package:iyteliden_mobile/pages/products_by_category_page.dart';
+import 'package:iyteliden_mobile/pages/products_by_location_page.dart';
 import 'package:iyteliden_mobile/services/favorite_service.dart';
 import 'package:iyteliden_mobile/services/product_service.dart';
+import 'package:iyteliden_mobile/services/category_service.dart';
+import 'package:iyteliden_mobile/services/location_service.dart';
 import 'package:iyteliden_mobile/services/search_history_service.dart';
 import 'package:iyteliden_mobile/services/user_service.dart';
 import 'package:iyteliden_mobile/widgets/simple_product_card.dart';
@@ -16,15 +22,22 @@ class SearchPage extends StatefulWidget {
   State<StatefulWidget> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> {
+class _SearchPageState extends State<SearchPage> with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final SearchHistoryService _searchHistoryService = SearchHistoryService();
+  final CategoryService _categoryService = CategoryService();
+  final LocationService _locationService = LocationService();
   
+  late TabController _tabController;
   final List<SimpleProductResponse> _products = [];
   List<String> _searchHistory = [];
+  List<CategoryResponse> _categories = [];
+  List<Location> _locations = [];
   bool _isLoading = false;
+  bool _isCategoriesLoading = false;
+  bool _isLocationsLoading = false;
   int _currentPage = 0;
   int _totalPages = 1;
   String? _jwt;
@@ -37,6 +50,7 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _loadJWT();
     _loadSearchHistory();
     // Auto focus the search field when the page opens
@@ -62,6 +76,7 @@ class _SearchPageState extends State<SearchPage> {
     _searchController.dispose();
     _searchFocusNode.dispose();
     _scrollController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -74,6 +89,8 @@ class _SearchPageState extends State<SearchPage> {
           _jwt = jwt;
         });
         _loadUserProfile();
+        _loadCategories();
+        _loadLocations();
       }
     } catch (e) {
       if (mounted) {
@@ -97,6 +114,66 @@ class _SearchPageState extends State<SearchPage> {
     } catch (e) {
       if (mounted) {
         _showError("Error loading user profile: ${e.toString()}");
+      }
+    }
+  }
+
+  Future<void> _loadCategories() async {
+    if (_jwt == null || !mounted) return;
+    
+    setState(() {
+      _isCategoriesLoading = true;
+    });
+    
+    try {
+      final (categories, error) = await _categoryService.getCategories(_jwt!);
+      if (error == null && categories != null && mounted) {
+        setState(() {
+          _categories = categories;
+          _isCategoriesLoading = false;
+        });
+      } else if (error != null && mounted) {
+        setState(() {
+          _isCategoriesLoading = false;
+        });
+        _showError("Failed to load categories: ${error.message}");
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isCategoriesLoading = false;
+        });
+        _showError("Error loading categories: ${e.toString()}");
+      }
+    }
+  }
+
+  Future<void> _loadLocations() async {
+    if (_jwt == null || !mounted) return;
+    
+    setState(() {
+      _isLocationsLoading = true;
+    });
+    
+    try {
+      final (locations, error) = await _locationService.getLocations(_jwt!);
+      if (error == null && locations != null && mounted) {
+        setState(() {
+          _locations = locations;
+          _isLocationsLoading = false;
+        });
+      } else if (error != null && mounted) {
+        setState(() {
+          _isLocationsLoading = false;
+        });
+        _showError("Failed to load locations: ${error.message}");
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLocationsLoading = false;
+        });
+        _showError("Error loading locations: ${e.toString()}");
       }
     }
   }
@@ -288,6 +365,149 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
+  Widget _buildSearchByCategory() {
+    if (_isCategoriesLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+
+    if (_categories.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            "No categories available",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _categories.length,
+      itemBuilder: (context, index) {
+        final category = _categories[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            title: Text(
+              category.categoryName,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            trailing: const Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Colors.grey,
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProductsByCategoryPage(
+                    categoryId: category.categoryId,
+                    categoryName: category.categoryName,
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchByLocation() {
+    if (_isLocationsLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+
+    if (_locations.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            "No locations available",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _locations.length,
+      itemBuilder: (context, index) {
+        final location = _locations[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.location_on,
+                color: AppColors.primary,
+                size: 24,
+              ),
+            ),
+            title: Text(
+              location.locationName,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            trailing: const Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Colors.grey,
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProductsByLocationPage(
+                    locationId: location.locationId,
+                    locationName: location.locationName,
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final String liveSearchText = _searchController.text;
@@ -382,21 +602,6 @@ class _SearchPageState extends State<SearchPage> {
               prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              // Add a clear button if desired (optional)
-              // suffixIcon: _searchController.text.isNotEmpty
-              //     ? IconButton(
-              //         icon: Icon(Icons.clear, color: Colors.grey[600]),
-              //         onPressed: () {
-              //           _searchController.clear();
-              //           // Manually trigger onChanged logic
-              //           setState(() {
-              //             _showHistory = true;
-              //             _products.clear();
-              //             _currentQuery = '';
-              //           });
-              //         },
-              //       )
-              //     : null,
             ),
             onSubmitted: (value) {
               final queryToSubmit = value.trim();
@@ -440,8 +645,29 @@ class _SearchPageState extends State<SearchPage> {
             Navigator.pop(context, true);
           },
         ),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: AppColors.primary,
+          tabs: const [
+            Tab(text: "Recent Searches"),
+            Tab(text: "By Category"),
+            Tab(text: "By Location"),
+          ],
+        ),
       ),
-      body: bodyContent,
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // Recent Searches Tab
+          bodyContent,
+          // Search by Category Tab
+          _buildSearchByCategory(),
+          // Search by Location Tab
+          _buildSearchByLocation(),
+        ],
+      ),
     );
   }
 }
